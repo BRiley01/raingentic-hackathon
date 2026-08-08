@@ -1,0 +1,66 @@
+{
+  "tripId": "paris-2026-spring",
+  "traveler": {
+    "id": "trav_001",
+    "name": "Alex Rivera",
+    "email": "alex@example.com"
+  },
+  "budget": { "amountCents": 180000, "currency": "USD" },
+  "domainCaps": {
+    "flights": { "amountCents": 80000, "currency": "USD" },
+    "hotels": { "amountCents": 60000, "currency": "USD" }
+  },
+  "holdTtlSeconds": 900,
+  "items": [
+    {
+      "id": "flt-1",
+      "domain": "flights",
+      "label": "JFK -> CDG round trip",
+      "vendor": "kayak.com",
+      "vendorUrl": "https://www.kayak.com/flights/JFK-CDG",
+      "maxSpend": { "amountCents": 65000, "currency": "USD" },
+      "merchantAllowlist": ["kayak.com"],
+      "payable": true
+    },
+    {
+      "id": "htl-1",
+      "domain": "hotels",
+      "label": "Hotel Ibis Paris, 4 nights",
+      "vendor": "booking.com",
+      "vendorUrl": "https://www.booking.com/hotel/fr/ibis-paris.html",
+      "maxSpend": { "amountCents": 45000, "currency": "USD" },
+      "merchantAllowlist": ["booking.com"],
+      "payable": true
+    },
+    {
+      "id": "car-1",
+      "domain": "transport",
+      "label": "Compact rental car, 4 days",
+      "vendor": "hertz.com",
+      "vendorUrl": "https://www.hertz.com",
+      "maxSpend": { "amountCents": 22000, "currency": "USD" },
+      "merchantAllowlist": ["hertz.com"],
+      "payable": true
+    },
+    {
+      "id": "din-1",
+      "domain": "dining",
+      "label": "Le Comptoir dinner reservation (hold only)",
+      "vendor": "opentable.com",
+      "vendorUrl": "https://www.opentable.com",
+      "maxSpend": { "amountCents": 12000, "currency": "USD" },
+      "merchantAllowlist": ["opentable.com"],
+      "payable": false
+    },
+    {
+      "id": "act-1",
+      "domain": "activities",
+      "label": "Louvre skip-the-line tickets x2",
+      "vendor": "getyourguide.com",
+      "vendorUrl": "https://www.getyourguide.com",
+      "maxSpend": { "amountCents": 9000, "currency": "USD" },
+      "merchantAllowlist": ["getyourguide.com"],
+      "payable": true
+    }
+  ]
+}
