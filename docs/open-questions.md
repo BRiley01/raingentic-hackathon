@@ -138,9 +138,9 @@ parallel will invent five different error shapes unless we fix this first.
 - **`pending` must be a real state, distinct from failed.** `eth_getTransactionByHash` returns
   **null while unconfirmed** — i.e. exactly during the window a user is watching. Treating "not
   found yet" as failure will report false failures on every booking.
-- **Report every violated rule, don't short-circuit.** The earlier project found that
-  first-failure-wins made two genuinely different violations render identically, erasing the
-  distinction. Whatever validates a `confirm()` should return the full set of reasons.
+- **Report every violated rule, don't short-circuit.** First-failure-wins makes two genuinely
+  different violations render identically, erasing the distinction that matters. Whatever
+  validates a `confirm()` should return the full set of reasons.
 - **Monad changed its revert-code shape:** `eth_call` codes moved from `-32603` to **`3`** (v0.15.0),
   which **breaks naive viem error handling**. Provider errors need explicit mapping; we cannot
   pass viem errors through and hope.
@@ -152,7 +152,7 @@ and whether provider codes leak through `SearchResult.raw`.
 
 ## 6. Domain ownership
 
-**Status:** Open — nothing in the earlier project bears on this · **Blocks:** parallel scheduling
+**Status:** Open · **Blocks:** parallel scheduling
 
 The owner column in the README is `TBD` for all five domains. Until teams are assigned,
 the parallel-workstream premise doesn't hold.
