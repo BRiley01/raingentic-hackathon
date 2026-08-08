@@ -1,0 +1,10 @@
+{
+  "name": "travel-agent",
+  "version": "0.1.0",
+  "description": "Multi-agent travel booking platform",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "test": "vitest"
+  }
+}
