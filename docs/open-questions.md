@@ -173,10 +173,9 @@ how far the demo goes.
 
 - **The event is Aug 8–9 2026, NYC. Today is Aug 8.** Build budget is **~14 hours**, and Rain
   creds don't land until **11:30am Saturday**.
-- The earlier project scoped a **single** use case, had its payment rail and enforcement point
-  **already built and verified on-chain**, and still concluded: *"The schedule does not close"* —
-  12–14 hrs of remaining work against a ~14 hr budget, **16–20 hrs realistic**. This repo has five
-  domains, all scaffolding, and no verified rail.
+- For calibration: a **single**-use-case build for this same event, with its payment rail and
+  policy layer already written and verified on-chain, still estimated **16–20 hrs** of real work
+  against that ~14 hr budget. This repo has five domains, all scaffolding, and no verified rail.
 - **The judges** are product and infra people (Rain, Cursor/Origin, Dragonfly) and **reward a
   working, product-minded demo over a sprawling one.** The stated challenge is broad on purpose:
   *"build the best use case that uses Rain and involves agentic commerce."* Nothing requires five
@@ -193,24 +192,17 @@ demo path touches real money at all.
 
 ---
 
-## Provenance & staleness
+## Caveats
 
-Everything in the ▸ blocks comes from `~/hack/raingentic` (not a git repo; a sibling
-working directory), primarily **`PLAN.md` rev 2, dated 2026-08-02**, written after five
-adversarial evaluations. On-chain claims there were verified against live Monad testnet on
-that date.
-
-Two cautions:
-
-1. **`HANDOFF.md` in that repo contains known-stale facts.** `PLAN.md` carries a corrections
-   table superseding it. Where they disagree, PLAN wins. Notably: x402 v2 uses
-   `PAYMENT-REQUIRED` / `PAYMENT-SIGNATURE` headers (not the v1 `X-PAYMENT` names), `@x402/*`
-   packages are v2 while bare `x402-*` names are stale v1, and the repo moved to
-   `github.com/x402-foundation/x402`.
-2. **The verifications are six days old** and testnet details move. Re-check anything
-   load-bearing before building on it.
-
-No credentials, keys, or wallet addresses were copied from that project — its `.env` was not read.
+- **The on-chain verifications above were made 2026-08-02.** Testnet details move — re-check
+  anything load-bearing before building on it.
+- **x402 has a v1/v2 split that bites silently.** `@x402/*` packages are v2; bare `x402-*` names
+  are stale v1, and **Monad's facilitator supports v2 only**. v2 uses the `PAYMENT-REQUIRED`
+  (402 challenge) and `PAYMENT-SIGNATURE` (retry) headers — the older `X-PAYMENT` /
+  `X-PAYMENT-RESPONSE` names are v1 compatibility only. The repo now lives at
+  `github.com/x402-foundation/x402`.
+- **Name collisions when searching for Rain:** `@rainway/api` on npm, `*.rain.one`, and
+  Rain Protocol / rainlang are all different projects.
 
 ---
 
@@ -219,4 +211,3 @@ No credentials, keys, or wallet addresses were copied from that project — its 
 - `README.md` — full project guide
 - `docs/architecture.md` — layer breakdown
 - `docs/api-contracts.md` — interface agreements between teams
-- `~/hack/raingentic/PLAN.md` — the earlier project's plan (source for the ▸ blocks)
