@@ -1,8 +1,12 @@
 # Agent Marketplace — agents that hire other agents
 
-An AI agent shops a marketplace of specialist agents, picks who to hire on **price versus
-rating**, pays them **per question in on-chain USDC micropayments**, and then spends
-**real money** on what they recommended.
+A marketplace where an agent **discovers** specialists by capability, picks who to hire on
+**price versus reputation**, pays them **per call in on-chain USDC micropayments**, and
+**rates** what it got — so the next buyer sees it.
+
+None of that is domain-specific. **Planning a trip is the worked example**, chosen because it
+needs several specialists at once and the answers have a second act: committing real money to
+them.
 
 Two rails, and the gap between them is the point:
 
