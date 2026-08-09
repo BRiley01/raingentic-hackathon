@@ -37,6 +37,42 @@ import { explorerTxUrl, payAndQuery, x402Enabled } from "../payments/x402.js";
 const NETWORK = "eip155:10143"; // Monad testnet
 const usd = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
+/**
+ * Present the listings in an order that carries NO signal.
+ *
+ * They used to arrive rating-sorted, which reads as a ranking — and the model simply took
+ * row 1 every time. Evidenced twice: when booking.com was top it always bought
+ * booking.com; when booking.com dropped to 3.6★ and hotels.com became top it always
+ * bought hotels.com. Two different agents, same position. That's position bias, not a
+ * price judgement.
+ *
+ * The CANVAS stays rating-sorted on purpose — vertical position is a deliberate second
+ * signal for a human reading it from across a room. This is only about what the model
+ * reads, where a ranked list is the layout deciding instead of the agent.
+ *
+ * Seeded on (runId, category) so an order is stable within a run and reproducible under
+ * QUALITY_SEED, rather than reshuffling between calls in a way nobody could rehearse.
+ */
+function presentationOrder<T>(items: T[], key: string): T[] {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < key.length; i++) {
+    h ^= key.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  const rand = () => {
+    h = (h + 0x6d2b79f5) | 0;
+    let t = Math.imul(h ^ (h >>> 15), 1 | h);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const out = [...items];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [out[i], out[j]] = [out[j]!, out[i]!];
+  }
+  return out;
+}
+
 /** MCP tools return text. Keep it compact — this lands in the model's context. */
 const text = (body: string) => ({ content: [{ type: "text" as const, text: body }] });
 const failure = (body: string) => ({ content: [{ type: "text" as const, text: body }], isError: true });
@@ -133,18 +169,31 @@ export function createMarketplaceMcpServer(): McpServer {
         agents: listings.map((l) => ({ ...l, category: domain })),
       });
 
-      const rows = listings
-        .map(
-          (l) =>
+      // Neutral comparative facts, not a recommendation: what each agent's premium over
+      // the cheapest option actually buys in rating. This is unit-pricing — the arithmetic
+      // a buyer should do anyway — and it stops "cheapest" and "best rated" from being the
+      // only two legible choices.
+      const cheapest = listings.reduce((a, b) => (b.priceUsdc < a.priceUsdc ? b : a));
+      const rows = presentationOrder(listings, `${run.runId}:${type}`)
+        .map((l) => {
+          const dPrice = l.priceUsdc - cheapest.priceUsdc;
+          const dRating = l.rating - cheapest.rating;
+          const delta =
+            l.agentId === cheapest.agentId
+              ? "cheapest here"
+              : `+$${dPrice.toFixed(2)} and ${dRating >= 0 ? "+" : ""}${dRating.toFixed(1)}★ vs the cheapest`;
+          return (
             `  ${l.name.padEnd(16)} ${l.rating.toFixed(1)}★ (${l.ratingCount} ratings)   ` +
-            `$${l.priceUsdc.toFixed(2)} per question   id=${l.agentId}`,
-        )
+            `$${l.priceUsdc.toFixed(2)} per question   [${delta}]   id=${l.agentId}`
+          );
+        })
         .join("\n");
 
       return text(
         `${listings.length} agents selling ${category} advice ` +
-          `(this line item's cap is ${usd(capFor(run, type))}):\n\n${rows}\n\n` +
-          `Hire one with hire_agent, and say why you picked it.`,
+          `(this line item's cap is ${usd(capFor(run, type))}). Listed in no particular ` +
+          `order — position means nothing here:\n\n${rows}\n\n` +
+          `Hire one with hire_agent, and say why you picked it over the others.`,
       );
     },
   );
