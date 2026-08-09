@@ -35,6 +35,7 @@ export function summarize(events: DemoEvent[]): Summary {
   // Charge amounts are keyed by domain so a re-emitted event can't double-count.
   const charges = new Map<string, number>();
   const spend = new Map<string, number>();
+  const settled = new Set<string>();
 
   let goal: string | undefined;
   let budgetCents = 0;
@@ -42,7 +43,17 @@ export function summarize(events: DemoEvent[]): Summary {
 
   for (const e of events) {
     switch (e.type) {
+      // A new run resets the totals. The replay buffer can hold several runs, and
+      // adding run #2's settlements to run #1's would put a number on the header
+      // that never happened.
       case "run.started":
+        listed.clear();
+        paid.clear();
+        cards.clear();
+        charges.clear();
+        spend.clear();
+        settled.clear();
+        complete = false;
         goal = e.goal;
         budgetCents = e.budgetCents;
         break;
@@ -55,6 +66,7 @@ export function summarize(events: DemoEvent[]): Summary {
         break;
       case "payment.settled":
         paid.add(e.agentId);
+        settled.add(e.paymentId);
         break;
       case "payment.failed":
         spend.delete(e.paymentId);
@@ -73,13 +85,12 @@ export function summarize(events: DemoEvent[]): Summary {
     }
   }
 
-  // Only count spend for payments that actually settled.
-  const settledPaymentIds = new Set(
-    events.filter((e) => e.type === "payment.settled").map((e) => e.paymentId),
-  );
+  // Only count spend for payments that actually settled — tracked inside the fold
+  // so a previous run's settlement of the same paymentId ("pay_flights" is
+  // deterministic) can't mark this run's pending payment as paid.
   let tier1SpentUsdc = 0;
   for (const [paymentId, amount] of spend) {
-    if (settledPaymentIds.has(paymentId)) tier1SpentUsdc += amount;
+    if (settled.has(paymentId)) tier1SpentUsdc += amount;
   }
 
   return {

@@ -15,6 +15,12 @@ export function useEventStream() {
   const { mode, frame, speed } = resolveMode();
 
   const [events, setEvents] = useState<DemoEvent[]>([]);
+  // The server replays its whole ring buffer to every new connection — that's the
+  // demo insurance that survives a mid-demo refresh. The cost is that a run from
+  // hours ago looks exactly like one happening now, and no amount of refreshing
+  // changes it because the buffer lives in the server process. So track how old
+  // the newest event is and let the UI say so.
+  const [now, setNow] = useState(() => Date.now());
   // Live mode can legitimately be silent for a long time (nothing has called
   // emit() yet). Surfacing the connection state separately means "empty" and
   // "broken" don't look the same on stage.
@@ -48,5 +54,30 @@ export function useEventStream() {
     return () => es.close();
   }, [mode, speed, frame]);
 
-  return { events, mode: mode as Mode, status };
+  // Staleness has to advance without new events arriving, so it needs its own
+  // tick. Live only — the simulator's timestamps are always "now".
+  useEffect(() => {
+    if (mode !== "live") return;
+    const t = setInterval(() => setNow(Date.now()), 3_000);
+    return () => clearInterval(t);
+  }, [mode]);
+
+  const lastTs = events.length ? events[events.length - 1]!.ts : undefined;
+
+  return {
+    events,
+    mode: mode as Mode,
+    status,
+    /** Age of the newest event, ms. undefined when nothing has arrived. */
+    ageMs: mode === "live" && lastTs ? Math.max(0, now - lastTs) : undefined,
+  };
+}
+
+/**
+ * Clear the server's replay buffer and reload. The only way to get out of
+ * "showing a run from an hour ago", since the buffer outlives every page load.
+ */
+export async function clearLiveHistory(): Promise<void> {
+  await fetch("/api/events/reset", { method: "POST" }).catch(() => {});
+  window.location.reload();
 }

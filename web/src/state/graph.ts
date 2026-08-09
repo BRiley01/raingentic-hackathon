@@ -91,8 +91,8 @@ type Fold = {
   complete: boolean;
 };
 
-function fold(events: DemoEvent[]): Fold {
-  const f: Fold = {
+function blank(): Fold {
+  return {
     budgetCents: 0,
     agents: new Map(),
     columns: new Map(),
@@ -108,6 +108,10 @@ function fold(events: DemoEvent[]): Fold {
     spentUsdc: 0,
     complete: false,
   };
+}
+
+function fold(events: DemoEvent[]): Fold {
+  let f = blank();
 
   // Only advance an agent's state — a late-arriving event must never drag a paid
   // agent back to `listed`.
@@ -130,7 +134,12 @@ function fold(events: DemoEvent[]): Fold {
 
   for (const e of events) {
     switch (e.type) {
+      // A new run is a new board. The server's replay buffer holds up to 500
+      // events, which can span several runs — without this the second run's
+      // agents, payments and totals accumulate on top of the first one's and the
+      // canvas shows a merge of two demos.
       case "run.started":
+        f = blank();
         f.goal = e.goal;
         f.budgetCents = e.budgetCents;
         break;

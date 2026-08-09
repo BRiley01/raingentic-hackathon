@@ -8,7 +8,7 @@ import { summarize } from "./state/summary";
 import { buildGraph } from "./state/graph";
 
 export default function App() {
-  const { events, mode, status } = useEventStream();
+  const { events, mode, status, ageMs } = useEventStream();
   const [showLog, setShowLog] = useState(true);
 
   // Both are pure folds over the log — recomputed whenever an event lands, never
@@ -18,7 +18,7 @@ export default function App() {
 
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      <StatHeader {...summary} mode={mode} status={status} />
+      <StatHeader {...summary} mode={mode} status={status} ageMs={ageMs} />
 
       <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
         <div style={{ flex: 1, minWidth: 0, position: "relative" }}>

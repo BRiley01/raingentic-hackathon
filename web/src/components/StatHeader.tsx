@@ -5,7 +5,7 @@
 // are props with zeroed defaults — the reducer feeds them in step 7.
 
 import { MODE_DESCRIPTION, MODE_LABEL, MODES, modeHref, type Mode } from "../mode";
-import type { StreamStatus } from "../useEventStream";
+import { clearLiveHistory, type StreamStatus } from "../useEventStream";
 
 type Props = {
   tier1SpentUsdc?: number;
@@ -20,7 +20,19 @@ type Props = {
   mode?: Mode;
   /** Live only: whether the stream is actually connected. */
   status?: StreamStatus;
+  /** Live only: age of the newest event, ms. */
+  ageMs?: number;
 };
+
+/**
+ * How old the newest event may be before we stop implying it's happening now. A
+ * live run's own beats are ≤2s apart, so anything past this is history being
+ * replayed out of the server's buffer.
+ */
+const STALE_AFTER_MS = 20_000;
+
+const age = (ms: number) =>
+  ms < 60_000 ? `${Math.round(ms / 1000)}s` : `${Math.round(ms / 60_000)}m`;
 
 const usd = (cents: number) =>
   (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
@@ -35,7 +47,9 @@ export default function StatHeader({
   complete = false,
   mode = "simulator",
   status = "idle",
+  ageMs,
 }: Props) {
+  const replayed = mode === "live" && ageMs !== undefined && ageMs > STALE_AFTER_MS;
   return (
     <header
       style={{
@@ -74,6 +88,29 @@ export default function StatHeader({
           </div>
         )}
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", alignItems: "center" }}>
+          {/* Nothing else on screen distinguishes a run happening now from one
+              replayed out of the server's buffer, and refreshing won't clear it —
+              so say it plainly, and offer the only thing that does. */}
+          {replayed && (
+            <button
+              onClick={clearLiveHistory}
+              title="This is history replayed from the server's buffer, not live activity. Clear it and reload."
+              style={{
+                fontSize: 11,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                color: "var(--pending)",
+                background: "transparent",
+                border: "1px solid var(--pending)",
+                borderRadius: 999,
+                padding: "4px 10px",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              replayed · {age(ageMs!)} old · clear
+            </button>
+          )}
           <ModeSwitch mode={mode} status={status} />
           {/* Real vendor names, synthetic ratings — say so, so nobody reads the
               numbers as real assessments (spec §1). */}
