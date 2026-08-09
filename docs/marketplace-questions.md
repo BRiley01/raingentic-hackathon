@@ -182,6 +182,16 @@ post-run rating visibly moves a number that already exists.
 
 > **A:** yes
 
+**⚠️ The sample sizes in that example defeat the second half of it.** A new rating moves a
+1-decimal display only when `(stars − rating) / (count + 1) ≥ 0.05`, so a 4.4★ agent awarded 5★
+needs **count ≤ 11**. Against 1.1k ratings the write-back is 4.40 → 4.4009: the number does not
+move, and "reputation drives the next decision" becomes a claim nobody in the room can verify.
+
+**Seeded counts are therefore single digits to low teens** (`web/src/mock/listings.ts`), with the
+agents the run actually hires at the bottom of the band. booking.com is left as the honest
+exception — a 5★ on a 4.9★ agent *shouldn't* move it. Tradeoff: low counts make ratings volatile,
+so few swarm samples can swing a selection; that is the knob to turn if the swarm gets twitchy.
+
 ---
 
 ### 7.4 What does a seller agent actually do inside? 🟡

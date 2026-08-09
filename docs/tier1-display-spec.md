@@ -190,7 +190,7 @@ tier, the rating has to do that work visually** — not just as a number:
 ```
 ┌─────────────────────────────┐
 │ booking.com         ● PAID  │   ← state dot
-│ ★★★★★ 4.9   (312)           │   ← filled bar, not just digits
+│ ★★★★★ 4.9   (21)            │   ← filled bar, not just digits
 │ $0.25 USDC                  │
 │ 0xAB…f31                    │
 │ ─────────────────────────── │

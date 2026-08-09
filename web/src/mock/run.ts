@@ -17,13 +17,13 @@
 import type { DemoEvent } from "@shared/events/types.js";
 import type { LineItem, TripRequest } from "@shared/domain/shared/trip.js";
 import { LISTINGS } from "./listings.js";
+import { txUrl } from "../explorer.js";
 
 // Distributive Omit — a plain Omit over a union collapses it to the shared keys.
 type Unstamped<T> = T extends unknown ? Omit<T, "seq" | "ts"> : never;
 export type MockStep = { after: number; event: Unstamped<DemoEvent> };
 
 const NETWORK = "eip155:10143"; // Monad testnet
-const explorer = (txHash: string) => `https://testnet.monadexplorer.com/tx/${txHash}`;
 
 // Beat timings. The one that matters is CHALLENGE_HOLD: settlement is fast
 // (~850ms measured), so without a deliberate pause the 402 challenge and the
@@ -180,7 +180,7 @@ export function buildRun(): MockStep[] {
       agentId: d.agentId,
       txHash,
       durationMs: 853,
-      explorerUrl: explorer(txHash),
+      explorerUrl: txUrl(txHash),
     });
 
     // The goods: one LineItem, plus the agent's self-declared quality (0–1).
@@ -192,8 +192,11 @@ export function buildRun(): MockStep[] {
       lineItem: d.lineItem,
     });
 
-    // Rating write-back. NOTE: against 148+ existing ratings the AVERAGE barely
-    // moves — that is arithmetic, not a bug. The visible signal is the count
+    // Rating write-back. Counts are seeded small (listings.ts) precisely so this
+    // moves the displayed average — a 1dp display needs
+    // (stars − rating)/(count + 1) ≥ 0.05. booking.com is the exception: a 5★ on
+    // a 4.9★ agent shouldn't move it, and faking that would be a lie. Elsewhere
+    // the reinforcing signal is the count
     // ticking up plus the star-delta flash on the edge (spec §3).
     const newRatingCount = chosen.ratingCount + 1;
     const newRating =
