@@ -1,7 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
 import express from "express";
-import { providers } from "../../agent/orchestrator.js";
 import {
   ensureDefaultAgents,
   getAgentStatsSnapshot,
@@ -20,44 +19,6 @@ router.use(eventRoutes);
 
 // Seller side of the marketplace: POST /agents/:agentId/query.
 router.use(marketplaceRoutes);
-
-const getProvider = (agentType: string) => {
-  const key = agentType.toLowerCase();
-  const provider = (providers as any)[key];
-  if (!provider) {
-    throw new Error(`Unknown agent_type: ${agentType}`);
-  }
-  return provider;
-};
-
-const handleAgentSearch = async (req: any, res: any) => {
-  try {
-    const body = (req.body && typeof req.body === "object") ? req.body : {};
-    const allowedFields = new Set(["agent_type", "agentType"]);
-    const unexpectedFields = Object.keys(body).filter((key) => !allowedFields.has(key));
-
-    if (unexpectedFields.length > 0) {
-      return res.status(400).json({ error: `Unexpected fields: ${unexpectedFields.join(", ")}` });
-    }
-
-    const agentType = body.agent_type ?? body.agentType;
-    if (!agentType) {
-      return res.status(400).json({ error: "agent_type is required" });
-    }
-
-    await ensureDefaultAgents();
-    const agents = await readAgents();
-    const normalizedType = String(agentType).toLowerCase();
-    const matches = agents.filter((agent: any) => {
-      const type = String(agent.type ?? "").toLowerCase();
-      return type === normalizedType || type === normalizedType.replace(/s$/, "");
-    });
-
-    return res.json(matches);
-  } catch (err) {
-    return res.status(500).json({ error: String(err) });
-  }
-};
 
 const loadTripTemplate = async () => {
   const raw = await fs.readFile(EXAMPLE_TRIP_PATH, "utf8");
@@ -141,7 +102,5 @@ router.post("/trip/variants", async (req: any, res: any) => {
     return res.status(500).json({ error: String(err) });
   }
 });
-
-router.post("/agent_type/search", async (req: any, res: any) => handleAgentSearch(req, res));
 
 export default router;

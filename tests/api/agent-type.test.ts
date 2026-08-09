@@ -10,45 +10,7 @@ beforeAll(async () => {
   app = createApp();
 });
 
-describe("agent_type API", () => {
-  it("returns hotels from the file store or 404 if route is unavailable", async () => {
-    const response = await request(app).get("/api/hotels");
-    expect([200, 404]).toContain(response.status);
-    if (response.status === 200) {
-      expect(response.body).toEqual(expect.any(Array));
-      expect(response.body.every((item: any) => item.type === "hotel")).toBe(true);
-    }
-  });
-
-  it("returns flights from the file store or 404 if route is unavailable", async () => {
-    const response = await request(app).get("/api/flights");
-    expect([200, 404]).toContain(response.status);
-    if (response.status === 200) {
-      expect(response.body).toEqual(expect.any(Array));
-      expect(response.body.every((item: any) => item.type === "flight")).toBe(true);
-    }
-  });
-
-  it("searches flights via agent_type", async () => {
-    const response = await request(app)
-      .post("/api/agent_type/search")
-      .send({ agent_type: "flights" });
-
-    expect(response.status).toBe(200);
-    expect(response.body).toEqual(expect.any(Array));
-    expect(response.body).toHaveLength(3);
-    expect(response.body.every((item: any) => item.type === "flight")).toBe(true);
-  });
-
-  it("rejects unexpected fields when searching by agent_type", async () => {
-    const response = await request(app)
-      .post("/api/agent_type/search")
-      .send({ agent_type: "flights", location: { name: "City" } });
-
-    expect(response.status).toBe(400);
-    expect(response.body.error).toContain("Unexpected fields");
-  });
-
+describe("marketplace API", () => {
   it("returns agent stats with average ratings and call counts", async () => {
     const response = await request(app).get("/api/agents");
 
@@ -89,12 +51,23 @@ describe("agent_type API", () => {
   });
 
   it("does not expose booking lifecycle endpoints", async () => {
-    const hold = await request(app).post("/api/agent_type/hold").send({ agent_type: "flights", resultId: "abc" });
-    const confirm = await request(app).post("/api/agent_type/confirm").send({ agent_type: "flights", holdId: "abc" });
-    const cancel = await request(app).post("/api/agent_type/cancel").send({ agent_type: "flights", bookingId: "abc" });
+    const hold = await request(app).post("/api/agent_type/hold").send({ agent_type: "flights" });
+    const confirm = await request(app).post("/api/agent_type/confirm").send({ agent_type: "flights" });
+    const cancel = await request(app).post("/api/agent_type/cancel").send({ agent_type: "flights" });
 
     expect(hold.status).toBe(404);
     expect(confirm.status).toBe(404);
     expect(cancel.status).toBe(404);
+  });
+
+  // Deleted in favour of GET /api/agents?type=. It was a POST for a read, snake_case
+  // where nothing else is, and returned agents in a different shape from
+  // GET /api/agents — two endpoints, two shapes, one job.
+  it("no longer exposes the agent_type search endpoint", async () => {
+    const response = await request(app)
+      .post("/api/agent_type/search")
+      .send({ agent_type: "flights" });
+
+    expect(response.status).toBe(404);
   });
 });

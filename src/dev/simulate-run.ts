@@ -34,11 +34,26 @@ const TRIP_ID = "paris-2026-spring";
 // the sellers came back with. This is what makes the allocator able to say no: size
 // the caps to fit whatever arrived and `allocation.failed` becomes unreachable and
 // the guardrail beat disappears.
+//
+// They must also SUM to less than the budget. The seller clamps its quote to the cap
+// it's given, so the worst case is every item landing exactly on its cap — and if the
+// caps sum above the budget, that worst case fails allocation. Answer quality is a
+// random draw now, so "worst case" is something that eventually happens on stage.
 const DOMAIN_CAPS: Record<string, number> = {
-  flights: 80_000,
-  hotels: 65_000,
-  transport: 40_000,
+  flights: 78_000,
+  hotels: 62_000,
+  transport: 36_000,
 };
+
+// Enforced rather than trusted: an unlucky run must not be the thing that discovers
+// someone widened a cap.
+const CAPS_TOTAL = Object.values(DOMAIN_CAPS).reduce((a, b) => a + b, 0);
+if (CAPS_TOTAL > BUDGET_CENTS) {
+  throw new Error(
+    `domain caps total ${CAPS_TOTAL}¢ but the budget is ${BUDGET_CENTS}¢ — ` +
+      `a maximally unlucky run would fail allocation. Lower a cap or raise the budget.`,
+  );
+}
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, FAST ? 0 : ms));
 const usd = (cents: number) => `$${(cents / 100).toFixed(2)}`;

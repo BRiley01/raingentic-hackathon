@@ -110,18 +110,18 @@ the whole marketplace, when a filter is applied.
   three legal values, a silent `[]` makes a typo indistinguishable from "no agents of
   that kind".
 
-### ❌ `GET /api/agents/:agentId`
+### ✅ `GET /api/agents/:agentId`
 
-One agent, by UUID. Needed to re-read reputation after rating it, and by the swarm.
+One listing, by UUID (a name is also accepted, for hand-testing). Returns
+`{ agentId, name, type, rating, ratingCount, priceUsdc, wallet }` — **never
+`qualityPercent`.** 404 for an unknown agent.
 
-### ⚠️ `POST /api/agent_type/search`
+### 🪦 `POST /api/agent_type/search` — deleted
 
-`{ agent_type: "hotels" }` → raw agent records (a *different* shape from
-`GET /api/agents` — the stored record, not the snapshot). Accepts plural or
-singular. Works, but it's a POST for a read, it's snake_case where nothing else is,
-and it duplicates `GET /api/agents?type=`. **Recommend deprecating** once the query
-param exists. Note its test pins **exactly 3 `flight` agents** — adding a fourth
-breaks a test that looks unrelated.
+Replaced by `GET /api/agents?type=`. It was a POST for a read, snake_case where
+nothing else is, and returned agents in a *different shape* from `GET /api/agents` —
+two endpoints, two shapes, one job. Returns 404, and a test asserts it stays that
+way.
 
 ---
 
@@ -132,17 +132,38 @@ breaks a test that looks unrelated.
 The seller. One payment buys one answer (question 1.3).
 
 ```ts
-// request  (both optional; the seller is naive by design — question 7.4)
-{ goal?: string, capCents?: number }
+// request  (all optional; the seller is naive by design — question 7.4)
+{
+  goal?: string,
+  capCents?: number,   // tell the seller the budget and it quotes inside it
+  seed?: number,       // pin the quality draw for this one call
+}
 
 // response
 {
   agentId: "51738b18-927a-47b0-80e9-d8659c6363cf",
   name: "booking.com",
-  quality: 0.91,        // 0–1, SELF-DECLARED. Nobody audits it; the client rates it.
+  quality: 0.87,       // 0–1, DRAWN — see below
   lineItem: { id, domain, label, vendor, vendorUrl, maxSpend, merchantAllowlist, payable }
 }
 ```
+
+**`quality` is a draw, not a constant.** It's a truncated normal centred on the
+agent's `qualityPercent` with σ = 0.08, so a good agent usually delivers and
+sometimes disappoints, and a weak one occasionally gets lucky. A fixed score made
+reputation meaningless — there was nothing for a rating to average over.
+
+**Reproducibility:** `seed` in the body pins one call; `QUALITY_SEED=42` on the
+server pins every call, so a whole rehearsal repeats identically. Streams are derived
+from *(seed, agentId)*, not from one shared sequence — a single stream is only
+reproducible for the life of the process, so run #2 would differ from run #1.
+
+**A bad draw can never fail the run.** A worse answer costs more, but the quote is
+clamped to `capCents` when you supply it. A rejected allocation is a beat to stage
+deliberately, not one to leave to chance in front of judges — so a rejection is only
+reachable by *not* telling the seller the cap. The caller's domain caps must also sum
+to **less than** the budget, or the worst case (every item on its cap) fails
+allocation; the harness asserts this at startup.
 
 **The client owns `id` and `domain`; the seller owns the rest.** Item ids must be
 unique across the assembled trip, and the client is what holds the
@@ -280,9 +301,6 @@ only reset is deleting `data/agents.json` and `data/.seed-version`.
   type-level aggregate that reads as the agent's own rating and isn't, and neither is
   part of the contract. Removing them breaks `tests/api/agent-type.test.ts`, which
   asserts both are present — that test needs updating in the same change.
-- `agent_type` is snake_case; nothing else is.
-- `GET /api/agents` and `POST /api/agent_type/search` both return agents, **in
-  different shapes**. One of them should go.
 - `priceUsdc` is a decimal number of USDC while tier 2 is integer cents everywhere.
   Inconsistent, but `priceUsdc` is in the published event contract and renaming it is
   a breaking change — documenting the seam rather than churning it.
