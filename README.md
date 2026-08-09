@@ -54,8 +54,8 @@ The client agent is [rain-cli](https://github.com/aknlite48/rain-cli) — a term
 agent that speaks MCP. It needs Bun, an Anthropic key and a real TTY.
 
 ```bash
-cd ~/hack/travel-agent          # a dir whose AGENTS.md makes it a buying agent
-rain-code                       # or: bun run --cwd ../rain-cli src/index.ts
+cd clients/buyer                # its AGENTS.md makes rain-cli act as a buyer, not a coder
+rain-code                       # or: bun run --cwd ~/hack/rain-cli src/index.ts
 > /mcp                          # Enter on "marketplace" — connect is per-run, every launch
 > I want a week in Paris for two in March. Total budget $1,800. Book it.
 ```
