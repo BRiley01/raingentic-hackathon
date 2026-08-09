@@ -32,7 +32,18 @@ export interface AgentRecord {
   ratingCount: number;
   /** Charge per query, in USDC. The ONLY price field — see file-store's snapshot. */
   priceUsdc: number;
-  /** x402 payTo. Receive-only, so these never need funding — only the buyer does. */
+  /**
+   * x402 payTo — a real, EIP-55-checksummed address.
+   *
+   * Receive-only, so it never needs funding: only the BUYER spends. That's also why
+   * the private keys were generated and discarded rather than committed — nothing
+   * here needs to sign, and a repo is the wrong place for keys even on a testnet.
+   *
+   * These must be genuine addresses. The placeholders they replaced were random hex
+   * with mixed case and therefore had invalid EIP-55 checksums, which viem's
+   * getAddress() rejects outright — they would have thrown as `payTo` the moment
+   * x402 was wired in.
+   */
   wallet: string;
 }
 
@@ -107,15 +118,15 @@ function agent(
 // agents, which is why the UI carries a "simulated data" chip. Within a category,
 // better-rated agents charge more: that tension is the decision the demo is about.
 export const DEFAULT_AGENTS: AgentRecord[] = [
-  agent(1, "kayak.com", "flight", 0.25, 4.9, 24, 94, "0x7A3f9C2b5E81dA46F0b3C77e19aB4d5E6F208c31"),
-  agent(2, "priceline.com", "flight", 0.12, 4.4, 9, 82, "0x2B8eD41a9F6c07B35De29a8C41f0E7b6A5d3C902"),
-  agent(3, "united.com", "flight", 0.06, 3.8, 14, 61, "0x9C0a7E35B21f8D64Ae03C5b9F172d8E4a6B7F103"),
-  agent(4, "booking.com", "hotel", 0.25, 4.9, 21, 91, "0xAB41c9E07f2B85dA36C1e94F08b7D5a2E63f0c14"),
-  agent(5, "hotels.com", "hotel", 0.14, 4.4, 12, 79, "0x5D9b3A28E14c06F7aB52d8C93e01B4f6A7c2E805"),
-  agent(6, "expedia.com", "hotel", 0.08, 3.8, 18, 64, "0x1F6c8B05a93E27dD41b0A5c86f3E9b2D7a4C1e06"),
-  agent(7, "hertz.com", "car", 0.11, 4.6, 8, 86, "0xC30e5A81b47F29dE06a3B9c15f8D42e7A6b0F207"),
-  agent(8, "avis.com", "car", 0.07, 4.1, 11, 72, "0x8E27fB4a05D31c96Ae5b0C83d17F4a9E2b6D3c08"),
-  agent(9, "enterprise.com", "car", 0.04, 3.5, 6, 55, "0x4A0d7C63e28B15fF93a6D1b70c8E5a4F2b9E6d09"),
+  agent(1, "kayak.com", "flight", 0.25, 4.9, 24, 94, "0x25733a37A44741C4b081dB49B6AC2f9b4754350a"),
+  agent(2, "priceline.com", "flight", 0.12, 4.4, 9, 82, "0x22c7549D0340D13FB485A458d55DE5543904472b"),
+  agent(3, "united.com", "flight", 0.06, 3.8, 14, 61, "0xEF6BFfB0eF556bF36447De334dA380A43983C4F3"),
+  agent(4, "booking.com", "hotel", 0.25, 4.9, 21, 91, "0xa1729901dC6601f04aDEe100D1A59860eff444e8"),
+  agent(5, "hotels.com", "hotel", 0.14, 4.4, 12, 79, "0x99cDCcb651EE91e9d491d25B3835aA2f1d8C9ae6"),
+  agent(6, "expedia.com", "hotel", 0.08, 3.8, 18, 64, "0x3c71B2cd7a133A25f3EC33FFE8Eb9128c7206234"),
+  agent(7, "hertz.com", "car", 0.11, 4.6, 8, 86, "0xa27B8c7513BeF50e4E91576F48cfa74591357e89"),
+  agent(8, "avis.com", "car", 0.07, 4.1, 11, 72, "0xe54CBd75bfe328e75E7cD84059a3b00b4c6efE72"),
+  agent(9, "enterprise.com", "car", 0.04, 3.5, 6, 55, "0x564d7e49315a5E3151eC7A31e1Add348F21ca0d8"),
 ];
 
 /**
@@ -125,4 +136,4 @@ export const DEFAULT_AGENTS: AgentRecord[] = [
  * a version stamp everyone who already ran the server keeps their stale four-agent
  * file and sees no error explaining why.
  */
-export const SEED_VERSION = 2;
+export const SEED_VERSION = 3;

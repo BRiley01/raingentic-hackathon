@@ -4,3 +4,8 @@ dist/
 *.log
 .DS_Store
 coverage/
+
+# Runtime marketplace state. Regenerated from src/agent/agents.seed.ts via
+# SEED_VERSION, and mutated by every run once ratings persist — committing it would
+# make the next person's "seeded" ratings whatever the last rehearsal left behind.
+data/

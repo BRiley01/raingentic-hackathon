@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "express": "^5.2.1",
+    "viem": "^2.55.11",
     "zod": "^4.4.3"
   },
   "devDependencies": {

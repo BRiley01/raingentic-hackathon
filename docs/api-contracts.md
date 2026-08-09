@@ -85,7 +85,8 @@ The directory. Returns the stats snapshot:
     rating, ratingCount,              // the agent's own reputation
     priceUsdc,                        // charge per query, USDC — the only price field
     qualityPercent,                   // 0–100 advertised (agent.response.quality is 0–1)
-    wallet,                           // x402 payTo — receive-only, needs no funding
+    wallet,                           // x402 payTo — a real EIP-55 address.
+                                      // Receive-only: only the BUYER needs funding.
   }],
   totalAgents, averageRating, ratingEndpointCalls
 }
@@ -186,7 +187,9 @@ Nothing about the request or response shape changes.
 
 ## 3. Rating
 
-### ⚠️ `POST /api/agents/rating` — exists, but cannot do the job
+### ⚠️ `POST /api/agents/rating` — superseded, use `/agents/:agentId/rating`
+
+Still mounted (a test depends on it) but it cannot do the job:
 
 ```ts
 { agentType: "hotel", rating: 5 }   // agentId is accepted and then IGNORED
@@ -205,19 +208,30 @@ Consequence: reputation cannot accumulate. That blocks the swarm entirely, and i
 why the rating write-back currently visible on the canvas is computed client-side by
 the harness rather than read back from the server.
 
-### ❌ `POST /api/agents/:agentId/rating` — what's needed
+### ✅ `POST /api/agents/:agentId/rating`
 
 ```ts
 // request
-{ stars: 1..5 }
+{ stars: 1..5 }        // `rating` / `score` also accepted
 
 // response — the agent's updated reputation
 { agentId, name, rating, ratingCount }
 ```
 
-Must fold into that agent's `rating`/`ratingCount` and **persist to
-`data/agents.json`**. Keep the type-level aggregate if something depends on it, but
-*derive* it rather than store it.
+Folds into **that agent's** `rating`/`ratingCount` and persists to
+`data/agents.json`, so reputation accumulates across runs and survives a restart.
+Out-of-range or non-numeric stars → 400; unknown agent → 404.
+
+Writes are **serialised**. It's a read-modify-write on a JSON file, so concurrent
+raters would otherwise lose votes — two readers both see `count=8`, both write `9`,
+one rating vanishes. That matters for the swarm, which is nothing but concurrent
+raters.
+
+**This is what makes reputation causal rather than cosmetic.** Demonstrated over 14
+consecutive runs: `hotels.com` was hired repeatedly, delivered ~0.79 quality each
+time, and its rating decayed 4.4 → 4.19 — at which point the client switched to
+`booking.com` and paid 1.8× more, because the cheaper agent had proven worse. Nothing
+scripted that; the value function was simply fed newer numbers.
 
 ⚠️ **Keep `ratingCount` seeds small (6–24).** A 1dp display only moves when
 `(stars − rating) / (count + 1) ≥ 0.05`, so a 4.4★ agent needs `count ≤ 11` for a
@@ -280,11 +294,11 @@ demo path. Flagging rather than deleting in case it's load-bearing for someone.
 `POST /api/events/emit` — an in-process `emit()` publishes into memory no browser is
 subscribed to, and the run looks successful against a blank canvas.
 
-### ❌ `POST /api/marketplace/reset`
+### ✅ `POST /api/marketplace/reset`
 
-Restore ratings to the seeded values. Needed to rehearse the same demo twice, and
-essential for the swarm story ("let the market learn, reset, run again"). Today the
-only reset is deleting `data/agents.json` and `data/.seed-version`.
+Restore every rating to its seeded value → `{ ok: true, agents: [...] }`. Required
+the moment ratings persist: otherwise each rehearsal starts wherever the last one
+ended, and there's no way back to the state the demo was designed around.
 
 ### ✅ `GET /api/health` → `{ ok: true }`
 
@@ -292,9 +306,6 @@ only reset is deleting `data/agents.json` and `data/.seed-version`.
 
 ## Naming inconsistencies worth fixing while it's cheap
 
-- `POST /api/agents/rating` (collection-level, keyed by type) vs
-  `POST /api/agents/:agentId/query` (resource-level, keyed by UUID). Rating should be
-  `/api/agents/:agentId/rating`.
 - `id` (numeric, from the original seed) is now redundant alongside `agentId`. Kept
   for compatibility; nothing should read it.
 - `avgRating` and `ratingCalls` should come **out** of the response. `avgRating` is a

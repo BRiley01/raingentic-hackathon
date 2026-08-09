@@ -1,7 +1,9 @@
 // The marketplace, agent-by-agent.
 //
-//   GET  /api/agents/:agentId         read one listing
-//   POST /api/agents/:agentId/query   pay an agent and get one recommendation
+//   GET  /api/agents/:agentId          read one listing
+//   POST /api/agents/:agentId/query    pay an agent and get one recommendation
+//   POST /api/agents/:agentId/rating   rate it afterwards — persisted, per agent
+//   POST /api/marketplace/reset        restore seeded ratings between rehearsals
 //
 // The query route is the one x402 middleware will wrap: when that lands, the first
 // call returns 402 with a challenge and the retry carries PAYMENT-SIGNATURE. Nothing
@@ -13,7 +15,12 @@
 // answer, and the client decides whether that was worth paying for.
 
 import express from "express";
-import { ensureDefaultAgents, readAgents } from "../../agent/file-store.js";
+import {
+  ensureDefaultAgents,
+  readAgents,
+  recordAgentRatingById,
+  resetAgentRatings,
+} from "../../agent/file-store.js";
 import { domainOf, type AgentType } from "../../agent/agents.seed.js";
 import { LineItemSchema } from "../../domain/shared/trip.js";
 
@@ -123,6 +130,45 @@ router.get("/agents/:agentId", async (req: any, res: any) => {
     const agent = await findAgent(req.params.agentId);
     if (!agent) return res.status(404).json({ error: `no such agent: ${req.params.agentId}` });
     return res.json(toListing(agent));
+  } catch (err) {
+    return res.status(500).json({ error: String(err) });
+  }
+});
+
+/**
+ * Rate one agent. This is the write that makes reputation mean something.
+ *
+ * Distinct from POST /agents/rating, which buckets by TYPE and keeps the result in
+ * memory — rating one hotel agent there moved all three, and a restart erased it.
+ */
+router.post("/agents/:agentId/rating", async (req: any, res: any) => {
+  try {
+    const body = (req.body && typeof req.body === "object" ? req.body : {}) as Record<string, unknown>;
+    const stars = Number(body.stars ?? body.rating ?? body.score);
+
+    if (!Number.isFinite(stars) || stars < 1 || stars > 5) {
+      return res.status(400).json({ error: "stars must be a number from 1 to 5" });
+    }
+
+    const updated = await recordAgentRatingById(String(req.params.agentId), stars);
+    if (!updated) return res.status(404).json({ error: `no such agent: ${req.params.agentId}` });
+
+    return res.json(updated);
+  } catch (err) {
+    return res.status(500).json({ error: String(err) });
+  }
+});
+
+/**
+ * Restore every rating to its seeded value. Needed the moment ratings persist:
+ * otherwise each rehearsal starts wherever the last one ended.
+ */
+router.post("/marketplace/reset", async (_req: any, res: any) => {
+  try {
+    await ensureDefaultAgents();
+    await resetAgentRatings();
+    const agents = await readAgents();
+    return res.json({ ok: true, agents: agents.map(toListing) });
   } catch (err) {
     return res.status(500).json({ error: String(err) });
   }

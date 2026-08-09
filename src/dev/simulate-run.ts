@@ -236,17 +236,23 @@ async function main() {
     await emit("agent.response", { queryId, agentId: best.agentId, quality: answer.quality, lineItem });
     await sleep(650);
 
-    // ---- rating: the real rating endpoint --------------------------------------
-    // Stars from the quality actually delivered, so the rating means something.
+    // ---- rating: the real, persisted, per-agent endpoint ------------------------
+    // Stars come from the quality actually delivered, so the rating means something.
     const stars = Math.max(1, Math.min(5, Math.round(1 + answer.quality * 4)));
-    await api(`/api/agents/rating`, {
-      method: "POST",
-      body: JSON.stringify({ agentId: best.agentId, agentType: type, rating: stars }),
+
+    // The SERVER's numbers go on the wire, not ones computed here. Recomputing the
+    // average client-side would show a rating that looks right while the stored one
+    // drifted — the canvas would be reporting arithmetic instead of state.
+    const rated = await api<{ rating: number; ratingCount: number }>(
+      `/api/agents/${encodeURIComponent(best.agentId)}/rating`,
+      { method: "POST", body: JSON.stringify({ stars }) },
+    );
+    await emit("client.rating", {
+      agentId: best.agentId,
+      stars,
+      newRating: rated.rating,
+      newRatingCount: rated.ratingCount,
     });
-    const newRatingCount = best.ratingCount + 1;
-    const newRating =
-      Math.round(((best.rating * best.ratingCount + stars) / newRatingCount) * 100) / 100;
-    await emit("client.rating", { agentId: best.agentId, stars, newRating, newRatingCount });
 
     console.log(
       `  ${domain.padEnd(10)} ${best.agentId.padEnd(16)} $${best.priceUsdc.toFixed(2)}  ` +

@@ -102,7 +102,7 @@ export async function ensureDefaultAgents() {
     }
   }
 
-  await fs.writeFile(AGENTS_FILE, JSON.stringify(DEFAULT_AGENTS, null, 2), "utf8");
+  await writeAgents(DEFAULT_AGENTS);
   await fs.writeFile(SEED_STAMP_FILE, String(SEED_VERSION), "utf8");
   initializeAgentTypeStats(DEFAULT_AGENTS);
 }
@@ -112,7 +112,100 @@ export async function readAgents() {
   return JSON.parse(raw);
 }
 
+// ---- per-agent reputation ---------------------------------------------------
+
+/**
+ * Rating writes are read-modify-write on a JSON file, so they must not interleave.
+ * A swarm of buyers rating concurrently would otherwise lose votes: two readers both
+ * see count=8, both write count=9, and one rating vanishes. Chaining every write
+ * through one promise makes them serial.
+ */
+let writeChain: Promise<unknown> = Promise.resolve();
+function serialize<T>(work: () => Promise<T>): Promise<T> {
+  const next = writeChain.then(work, work);
+  // Keep the chain alive even if a link rejects, or every later write is poisoned.
+  writeChain = next.catch(() => undefined);
+  return next;
+}
+
+export interface AgentReputation {
+  agentId: string;
+  name: string;
+  rating: number;
+  ratingCount: number;
+}
+
+/**
+ * Fold one rating into a single agent's running average and persist it.
+ *
+ * This is what `recordAgentRating` could not do: that one buckets by TYPE and keeps
+ * the result in memory, so rating one hotel agent moved all three identically and a
+ * restart erased everything. Reputation has to accumulate per agent and survive a
+ * restart, or "rating drives the next decision" is a claim nothing backs up.
+ *
+ * Returns null when the agent doesn't exist.
+ */
+export async function recordAgentRatingById(
+  agentId: string,
+  stars: number,
+): Promise<AgentReputation | null> {
+  return serialize(async () => {
+    const agents = await readAgents();
+    const wanted = String(agentId).toLowerCase();
+    const agent = agents.find(
+      (a: any) =>
+        String(a.agentId ?? "").toLowerCase() === wanted ||
+        String(a.name ?? "").toLowerCase() === wanted,
+    );
+    if (!agent) return null;
+
+    const ratingCount = safeNumber(agent.ratingCount, 0) + 1;
+    const previousTotal = safeNumber(agent.rating, 0) * (ratingCount - 1);
+    // 2dp is what the wire carries; the UI shows 1dp and leans on the count plus the
+    // delta flash for the rest.
+    const rating = Math.round(((previousTotal + safeNumber(stars, 0)) / ratingCount) * 100) / 100;
+
+    agent.rating = rating;
+    agent.ratingCount = ratingCount;
+    await writeAgents(agents);
+
+    // Keep the type-level aggregate in step so the old endpoint's numbers stay
+    // consistent with reality.
+    recordAgentRating(String(agent.type ?? "unknown"), stars);
+
+    return { agentId: agent.agentId, name: agent.name, rating, ratingCount };
+  });
+}
+
+/**
+ * Restore every rating to its seeded value.
+ *
+ * Necessary the moment ratings persist: otherwise each rehearsal starts from
+ * wherever the last one left off, and there's no way back to the state the demo was
+ * designed around short of deleting files.
+ */
+export async function resetAgentRatings(): Promise<void> {
+  return serialize(async () => {
+    await writeAgents(DEFAULT_AGENTS);
+    await fs.writeFile(SEED_STAMP_FILE, String(SEED_VERSION), "utf8");
+    inMemoryAgentStats.byType.clear();
+    inMemoryAgentStats.ratingEndpointCalls = 0;
+    initializeAgentTypeStats(DEFAULT_AGENTS);
+  });
+}
+
+/**
+ * Write atomically: temp file, then rename.
+ *
+ * `writeFile` truncates and refills, so a concurrent reader can catch the file
+ * half-written and blow up on JSON.parse. Rename is atomic on POSIX, so a reader sees
+ * either the old contents or the new ones and never a fragment. This is not
+ * theoretical — it broke reads as soon as ratings started being written during a run,
+ * and the swarm is nothing but writes happening while the canvas reads.
+ */
 export async function writeAgents(agents: any[]) {
   await fs.mkdir(DATA_DIR, { recursive: true });
-  await fs.writeFile(AGENTS_FILE, JSON.stringify(agents, null, 2), "utf8");
+  const temp = `${AGENTS_FILE}.${process.pid}.tmp`;
+  await fs.writeFile(temp, JSON.stringify(agents, null, 2), "utf8");
+  await fs.rename(temp, AGENTS_FILE);
 }
