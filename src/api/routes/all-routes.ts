@@ -8,9 +8,13 @@ import {
   readAgents,
   recordAgentRating,
 } from "../../agent/file-store.js";
+import eventRoutes from "./events.js";
 
 const router = express.Router();
 const EXAMPLE_TRIP_PATH = path.resolve(process.cwd(), "examples", "trip.paris.json");
+
+// Live demo event stream (SSE) — see src/events/bus.ts.
+router.use(eventRoutes);
 
 const getProvider = (agentType: string) => {
   const key = agentType.toLowerCase();
