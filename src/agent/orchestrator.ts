@@ -5,6 +5,7 @@ import { hotelsProvider } from "../domain/hotels/booking.js";
 import { activitiesProvider } from "../domain/activities/booking.js";
 import { transportProvider } from "../domain/transport/booking.js";
 import { diningProvider } from "../domain/dining/booking.js";
+import { readAgents, ensureDefaultAgents } from "../agent/file-store.js";
 
 export const providers = {
   flights: flightsProvider,
@@ -35,4 +36,13 @@ export async function routeRequestToMocks(requestJson: any) {
 }
 
 //function to curl the openai api to get the llm response
+
+// Produce a fixed list of agent quality summaries in the shape you requested.
+// This intentionally returns deterministic values (ids, names, types, qualityPercent, rating).
+export async function produceFixedAgentOutput() {
+  // ensure the file exists with defaults, then read and return its contents
+  await ensureDefaultAgents();
+  const agents = await readAgents();
+  return agents;
+}
 

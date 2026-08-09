@@ -1,0 +1,23 @@
+[
+  {
+    "id": 1,
+    "name": "Mock Hotel 1",
+    "type": "hotel",
+    "qualityPercent": 85,
+    "rating": 4.5
+  },
+  {
+    "id": 2,
+    "name": "Flight Agent Supreme",
+    "type": "flight",
+    "qualityPercent": 99,
+    "rating": 4.5
+  },
+  {
+    "id": 3,
+    "name": "Flight Agent Sucks",
+    "type": "flight",
+    "qualityPercent": 10,
+    "rating": 4.5
+  }
+]

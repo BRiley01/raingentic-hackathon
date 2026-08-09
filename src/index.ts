@@ -1,2 +1,3 @@
-import { config } from "./config/index.js";
-console.log(`travel-agent starting on port ${config.port}`);
+import { startServer } from "./api/server.js";
+
+startServer();
