@@ -81,7 +81,10 @@ function detail(e: DemoEvent): string {
     case "payment.signed":
       return e.agentId;
     case "payment.settled":
-      return `${e.agentId} · ${e.txHash.slice(0, 10)}… · ${e.durationMs}ms`;
+      // No txHash on a simulated payment — there's no transaction to show.
+      return e.txHash
+        ? `${e.agentId} · ${e.txHash.slice(0, 10)}… · ${e.durationMs}ms`
+        : `${e.agentId} · simulated`;
     case "payment.failed":
       return `${e.agentId} · ${e.reason}`;
     case "agent.response":

@@ -76,7 +76,17 @@ export interface ClientSelect extends EventBase {
 
 // ---- x402 payment -----------------------------------------------------------
 
-export interface PaymentChallenge extends EventBase {
+/**
+ * Set when the payment is NOT a real on-chain settlement — e.g. the dev harness
+ * exercising the API layer before x402 exists. The UI must label these: a canvas
+ * that implies a settlement which never happened is worse than one that admits the
+ * gap. Optional and additive, so real emitters can ignore it.
+ */
+export interface SimulatedFlag {
+  simulated?: boolean;
+}
+
+export interface PaymentChallenge extends EventBase, SimulatedFlag {
   type: "payment.challenge";
   paymentId: string;
   agentId: string;
@@ -85,17 +95,18 @@ export interface PaymentChallenge extends EventBase {
   network: string; // "eip155:10143"
 }
 
-export interface PaymentSigned extends EventBase {
+export interface PaymentSigned extends EventBase, SimulatedFlag {
   type: "payment.signed";
   paymentId: string;
   agentId: string;
 }
 
-export interface PaymentSettled extends EventBase {
+export interface PaymentSettled extends EventBase, SimulatedFlag {
   type: "payment.settled";
   paymentId: string;
   agentId: string;
-  txHash: string;
+  /** Absent on simulated payments — there is no transaction to point at. */
+  txHash?: string;
   durationMs: number;
   explorerUrl?: string;
 }

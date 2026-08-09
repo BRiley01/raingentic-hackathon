@@ -170,6 +170,26 @@ export default function AgentNode({ data }: NodeProps) {
         </div>
       )}
 
+      {/* No chain, no proof — say which. A simulated payment that rendered like a
+          settled one would be the canvas telling a lie on stage. */}
+      {agent.simulatedPayment && (
+        <div
+          style={{
+            display: "inline-block",
+            marginTop: 7,
+            fontSize: 10,
+            letterSpacing: "0.04em",
+            textTransform: "uppercase",
+            color: "var(--pending)",
+            border: "1px dashed var(--pending)",
+            borderRadius: 4,
+            padding: "2px 6px",
+          }}
+        >
+          simulated payment
+        </div>
+      )}
+
       {/* The on-chain proof — the thing a judge leans in for, so it gets a real
           chip instead of 9px text that disappears on a projector. Clickable when
           the emitter sent an explorerUrl. */}

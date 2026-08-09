@@ -9,12 +9,16 @@ import {
   recordAgentRating,
 } from "../../agent/file-store.js";
 import eventRoutes from "./events.js";
+import marketplaceRoutes from "./marketplace.js";
 
 const router = express.Router();
 const EXAMPLE_TRIP_PATH = path.resolve(process.cwd(), "examples", "trip.paris.json");
 
 // Live demo event stream (SSE) — see src/events/bus.ts.
 router.use(eventRoutes);
+
+// Seller side of the marketplace: POST /agents/:agentId/query.
+router.use(marketplaceRoutes);
 
 const getProvider = (agentType: string) => {
   const key = agentType.toLowerCase();

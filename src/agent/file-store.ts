@@ -1,39 +1,13 @@
 import fs from "fs/promises";
 import path from "path";
 
+import { DEFAULT_AGENTS, SEED_VERSION } from "./agents.seed.js";
+
 const DATA_DIR = path.resolve(process.cwd(), "data");
 const AGENTS_FILE = path.join(DATA_DIR, "agents.json");
-
-const DEFAULT_AGENTS = [
-  {
-    id: 1,
-    name: "Mock Hotel 1",
-    type: "hotel",
-    qualityPercent: 85,
-    rating: 4.5,
-  },
-  {
-    id: 2,
-    name: "Flight Agent Supreme",
-    type: "flight",
-    qualityPercent: 99,
-    rating: 4.9,
-  },
-  {
-    id: 3,
-    name: "Flight Agent Mid",
-    type: "flight",
-    qualityPercent: 72,
-    rating: 4.6,
-  },
-  {
-    id: 4,
-    name: "Flight Agent Sucks",
-    type: "flight",
-    qualityPercent: 10,
-    rating: 3.2,
-  },
-];
+// Stamped beside agents.json so a seed change actually reaches machines that
+// already have the file — see ensureDefaultAgents().
+const SEED_STAMP_FILE = path.join(DATA_DIR, ".seed-version");
 
 const inMemoryAgentStats = {
   ratingEndpointCalls: 0,
@@ -71,6 +45,14 @@ export function getAgentStatsSnapshot(agents: any[] = []) {
       avgRating,
       ratingCalls: stats.calls,
       price: safeNumber(agent.price ?? agent.amount ?? 0, 0),
+      // Additive passthrough: a buyer can't shop without a price and can't pay
+      // without a wallet, and the display needs ratingCount to show a rating
+      // moving. Purely extra fields — nothing that read this before is affected.
+      agentId: agent.agentId ?? String(agent.name ?? agent.id),
+      priceUsdc: safeNumber(agent.priceUsdc ?? agent.price ?? 0, 0),
+      ratingCount: safeNumber(agent.ratingCount, 0),
+      qualityPercent: safeNumber(agent.qualityPercent, 0),
+      wallet: agent.wallet ?? "",
     };
   });
 
@@ -100,16 +82,27 @@ export function recordAgentRating(agentType: string, rating: number) {
 }
 
 export async function ensureDefaultAgents() {
-  try {
-    await fs.mkdir(DATA_DIR, { recursive: true });
-    await fs.stat(AGENTS_FILE);
-    const existingAgents = await readAgents();
-    initializeAgentTypeStats(existingAgents);
-    return;
-  } catch (err) {
-    await fs.writeFile(AGENTS_FILE, JSON.stringify(DEFAULT_AGENTS, null, 2), "utf8");
-    initializeAgentTypeStats(DEFAULT_AGENTS);
+  await fs.mkdir(DATA_DIR, { recursive: true });
+
+  // Re-seed when the file is missing OR was written by an older seed. Without the
+  // version check, editing the seed is a silent no-op on every machine that has
+  // already run the server — you get stale agents and no error saying why.
+  const stamp = await fs.readFile(SEED_STAMP_FILE, "utf8").catch(() => null);
+  const current = stamp !== null && Number(stamp) === SEED_VERSION;
+
+  if (current) {
+    try {
+      const existingAgents = await readAgents();
+      initializeAgentTypeStats(existingAgents);
+      return;
+    } catch {
+      // Stamp present but the file is gone or corrupt — fall through and re-seed.
+    }
   }
+
+  await fs.writeFile(AGENTS_FILE, JSON.stringify(DEFAULT_AGENTS, null, 2), "utf8");
+  await fs.writeFile(SEED_STAMP_FILE, String(SEED_VERSION), "utf8");
+  initializeAgentTypeStats(DEFAULT_AGENTS);
 }
 
 export async function readAgents() {

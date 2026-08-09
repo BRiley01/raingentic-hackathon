@@ -33,6 +33,8 @@ export type AgentVisual = {
   quality?: number; // 0–1, from agent.response
   txHash?: string;
   explorerUrl?: string;
+  /** True when the payment never touched a chain — the UI must say so. */
+  simulatedPayment?: boolean;
   lineItem?: LineItem;
   failure?: string;
   ratingDelta?: number; // stars just awarded
@@ -220,6 +222,7 @@ function fold(events: DemoEvent[]): Fold {
         if (a) {
           a.txHash = e.txHash;
           a.explorerUrl = e.explorerUrl;
+          a.simulatedPayment = e.simulated === true;
         }
         // Price comes from the challenge, but only settled payments count.
         const listing = f.agents.get(e.agentId)?.listing;
