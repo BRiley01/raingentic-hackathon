@@ -32,10 +32,60 @@ describe("agent_type API", () => {
   it("searches flights via agent_type", async () => {
     const response = await request(app)
       .post("/api/agent_type/search")
-      .send({ agent_type: "flights", location: { name: "City" }, dates: { start: "2026-01-01", end: "2026-01-02" } });
+      .send({ agent_type: "flights" });
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual(expect.any(Array));
+    expect(response.body).toHaveLength(3);
+    expect(response.body.every((item: any) => item.type === "flight")).toBe(true);
+  });
+
+  it("rejects unexpected fields when searching by agent_type", async () => {
+    const response = await request(app)
+      .post("/api/agent_type/search")
+      .send({ agent_type: "flights", location: { name: "City" } });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toContain("Unexpected fields");
+  });
+
+  it("returns agent stats with average ratings and call counts", async () => {
+    const response = await request(app).get("/api/agents");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveProperty("agents");
+    expect(response.body).toHaveProperty("totalAgents");
+    expect(response.body).toHaveProperty("averageRating");
+    expect(response.body).toHaveProperty("ratingEndpointCalls");
+    expect(response.body.agents.length).toBeGreaterThan(0);
+    expect(response.body.agents[0]).toHaveProperty("avgRating");
+    expect(response.body.agents[0]).toHaveProperty("ratingCalls");
+  });
+
+  it("records rating calls and returns updated averages", async () => {
+    const response = await request(app)
+      .post("/api/agents/rating")
+      .send({ agentType: "flight", rating: 4.9 });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveProperty("agents");
+    expect(response.body).toHaveProperty("ratingEndpointCalls");
+    expect(response.body.ratingEndpointCalls).toBeGreaterThanOrEqual(1);
+    expect(response.body.agents.some((agent: any) => agent.type === "flight")).toBe(true);
+  });
+
+  it("returns multiple trip JSON variants in the same schema", async () => {
+    const response = await request(app)
+      .post("/api/trip/variants")
+      .send({ agentType: "hotels", count: 3 });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(expect.any(Array));
+    expect(response.body).toHaveLength(3);
+    expect(response.body[0]).toHaveProperty("tripId");
+    expect(response.body[0]).toHaveProperty("traveler");
+    expect(response.body[0]).toHaveProperty("budget");
+    expect(response.body[0]).toHaveProperty("items");
   });
 
   it("does not expose booking lifecycle endpoints", async () => {
