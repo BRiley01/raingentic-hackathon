@@ -1,8 +1,9 @@
-// The contract EVERY booking domain implements.
+// The contract every search provider implements.
 // Flights, hotels, activities, transport, and dining each provide their own
-// version of this interface. The orchestrator treats them all uniformly.
+// version of this interface. The orchestrator treats them uniformly for query
+// and recommendation flows without exposing booking lifecycle operations.
 
-import type { BookingStatus, Money } from "./types.js";
+import type { Money } from "./types.js";
 
 export interface SearchResult {
   id: string;
@@ -11,23 +12,7 @@ export interface SearchResult {
   raw?: unknown; // provider-specific payload
 }
 
-export interface Hold {
-  id: string;
-  resultId: string;
-  expiresAt: string; // ISO 8601 — holds go stale, re-check before confirm
-  status: BookingStatus;
-}
-
-export interface Booking {
-  id: string;
-  status: BookingStatus;
-  confirmedAt?: string;
-}
-
 // TCriteria is domain-specific (flight route, hotel dates, etc.)
 export interface BookingProvider<TCriteria> {
   search(criteria: TCriteria): Promise<SearchResult[]>;
-  hold(resultId: string): Promise<Hold>;
-  confirm(holdId: string): Promise<Booking>; // gate real payment here
-  cancel(bookingId: string): Promise<Booking>;
 }

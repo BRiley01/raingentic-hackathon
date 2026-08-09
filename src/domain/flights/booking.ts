@@ -2,8 +2,6 @@
 import type {
   BookingProvider,
   SearchResult,
-  Hold,
-  Booking,
 } from "../shared/booking-base.js";
 import type { FlightsCriteria } from "./types.js";
 
@@ -38,27 +36,5 @@ export const flightsProvider: BookingProvider<FlightsCriteria> = {
     // generate a small list of results
     const results: SearchResult[] = Array.from({ length: 5 }, (_, i) => makeResult(i));
     return results;
-  },
-  async hold(resultId) {
-    return {
-      id: `hold-${resultId}-${Date.now()}`,
-      resultId,
-      expiresAt: new Date(Date.now() + 1000 * 60 * 15).toISOString(),
-      status: "held",
-    } as Hold;
-  },
-  async confirm(holdId) {
-    // TODO: gate payment / human approval here before confirming
-    return {
-      id: `booking-${holdId}-${Date.now()}`,
-      status: "confirmed",
-      confirmedAt: new Date().toISOString(),
-    } as Booking;
-  },
-  async cancel(bookingId) {
-    return {
-      id: bookingId,
-      status: "cancelled",
-    } as Booking;
   },
 };

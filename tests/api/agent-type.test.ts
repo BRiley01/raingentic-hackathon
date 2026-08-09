@@ -38,39 +38,13 @@ describe("agent_type API", () => {
     expect(response.body).toEqual(expect.any(Array));
   });
 
-  it("holds a flight via agent_type", async () => {
-    const search = await request(app)
-      .post("/api/agent_type/search")
-      .send({ agent_type: "flights", location: { name: "City" }, dates: { start: "2026-01-01", end: "2026-01-02" } });
+  it("does not expose booking lifecycle endpoints", async () => {
+    const hold = await request(app).post("/api/agent_type/hold").send({ agent_type: "flights", resultId: "abc" });
+    const confirm = await request(app).post("/api/agent_type/confirm").send({ agent_type: "flights", holdId: "abc" });
+    const cancel = await request(app).post("/api/agent_type/cancel").send({ agent_type: "flights", bookingId: "abc" });
 
-    const resultId = search.body[0]?.id;
-    const hold = await request(app).post("/api/agent_type/hold").send({ agent_type: "flights", resultId });
-    expect(hold.status).toBe(200);
-    expect(hold.body).toMatchObject({ resultId });
-  });
-
-  it("confirms a flight hold via agent_type", async () => {
-    const search = await request(app)
-      .post("/api/agent_type/search")
-      .send({ agent_type: "flights", location: { name: "City" }, dates: { start: "2026-01-01", end: "2026-01-02" } });
-
-    const resultId = search.body[0]?.id;
-    const hold = await request(app).post("/api/agent_type/hold").send({ agent_type: "flights", resultId });
-    const confirm = await request(app).post("/api/agent_type/confirm").send({ agent_type: "flights", holdId: hold.body.id });
-    expect(confirm.status).toBe(200);
-    expect(confirm.body).toMatchObject({ status: "confirmed" });
-  });
-
-  it("cancels a flight booking via agent_type", async () => {
-    const search = await request(app)
-      .post("/api/agent_type/search")
-      .send({ agent_type: "flights", location: { name: "City" }, dates: { start: "2026-01-01", end: "2026-01-02" } });
-
-    const resultId = search.body[0]?.id;
-    const hold = await request(app).post("/api/agent_type/hold").send({ agent_type: "flights", resultId });
-    const confirm = await request(app).post("/api/agent_type/confirm").send({ agent_type: "flights", holdId: hold.body.id });
-    const cancel = await request(app).post("/api/agent_type/cancel").send({ agent_type: "flights", bookingId: confirm.body.id });
-    expect(cancel.status).toBe(200);
-    expect(cancel.body).toMatchObject({ status: "cancelled" });
+    expect(hold.status).toBe(404);
+    expect(confirm.status).toBe(404);
+    expect(cancel.status).toBe(404);
   });
 });
