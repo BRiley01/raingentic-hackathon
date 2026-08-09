@@ -64,9 +64,51 @@ POST /api/trip/settle                              → hand the assembled TripRe
 
 You get the UUIDs from `GET /api/agents` — never construct or assume them.
 
-Two of those five don't exist yet. **The trip handoff is the biggest gap** — right
-now `allocate()` and `provisionAndSettle()` are only reachable in-process, so a CLI
-agent in a separate process has no way to reach tier 2 at all.
+All five exist. **But the real client agent doesn't use them** — see the MCP section
+below, which is the actual integration path.
+
+---
+
+## 0. MCP — how the real client agent connects
+
+`rain-cli` is a general-purpose terminal coding agent. It has no marketplace code and
+isn't going to grow any: it's an **MCP client**. So the marketplace is exposed as MCP
+tools at **`POST /api/mcp`** (Streamable HTTP, stateless), and an LLM does the shopping.
+
+```
+rain-code
+> /mcp add marketplace http://localhost:3000/api/mcp
+> /mcp connect
+> Book me a week in Paris for two in March, under $1,800.
+```
+
+| Tool | Emits |
+|---|---|
+| `start_trip_run(goal, budgetUsd, categories?)` | `run.started` — and **we** fix the caps |
+| `list_agents(category)` | `marketplace.query`, `marketplace.results` |
+| `hire_agent(agentId, reasoning)` | `client.deliberate`, `client.select`, `payment.*`, `agent.response` |
+| `rate_agent(agentId, stars)` | `client.rating` |
+| `settle_trip()` | `trip.assembled`, `allocation.*`, `tier2.*`, `run.complete` |
+| `trip_status()` | — |
+
+**Three properties this buys, and they're the reason it beats a bespoke client:**
+
+1. **The events are ours.** These handlers run in our process, so we emit everything.
+   The client repo needs no knowledge of the event contract, no shared types, no
+   `POST /api/events/emit`. Nothing can drift.
+2. **The reasoning is real.** `reasoning` is a *required* argument of `hire_agent` — an
+   agent cannot spend money without saying why — and it renders verbatim on the canvas.
+3. **The agent never holds a `TripRequest`.** `hire_agent` accumulates `LineItem`s
+   server-side and `settle_trip` takes no arguments, so the LLM cannot produce an
+   invalid trip, mangle a payload, or lose an item to its context window. It
+   orchestrates; the server owns the money, the caps and the validation.
+
+`npm run mcp:drive` walks the same tools over the same transport with hardcoded
+choices — rain-cli needs Bun, an API key and a TTY, so this is how the MCP path gets
+tested and rehearsed without it.
+
+⚠️ MCP tools in rain-cli are **auto-allowed** — no permission prompt. The agent spends
+without confirmation. Fine for a demo; know it.
 
 ---
 
@@ -246,7 +288,7 @@ This is where the gap is. Tier 2 works — `allocate()` and `provisionAndSettle(
 built and tested — but neither is exposed over HTTP, so only in-process callers can
 reach it.
 
-### ❌ `POST /api/trip/plan` — dry run
+### ✅ `POST /api/trip/plan` — dry run
 
 ```ts
 // request:  a full TripRequest (src/domain/shared/trip.ts)
@@ -257,7 +299,7 @@ reach it.
 Lets the client check a plan before committing. Also the honest place to surface a
 rejection: an agent recommending something over its domain cap gets refused here.
 
-### ❌ `POST /api/trip/settle` — the real handoff
+### ✅ `POST /api/trip/settle` — the real handoff
 
 `allocate()` → `provisionAndSettle()` → `SettlementReport`. Emits `trip.assembled`,
 `allocation.ok` / `allocation.failed`, `tier2.card_issued`, `tier2.charge`.

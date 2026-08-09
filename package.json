@@ -8,9 +8,11 @@
     "trip": "tsx src/cli.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
-    "simulate": "tsx src/dev/simulate-run.ts"
+    "simulate": "tsx src/dev/simulate-run.ts",
+    "mcp:drive": "tsx src/dev/mcp-drive.ts"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "express": "^5.2.1",
     "viem": "^2.55.11",
     "zod": "^4.4.3"

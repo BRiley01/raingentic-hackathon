@@ -10,6 +10,8 @@ import {
 import { AGENT_TYPES, parseAgentType } from "../../agent/agents.seed.js";
 import eventRoutes from "./events.js";
 import marketplaceRoutes from "./marketplace.js";
+import tripRoutes from "./trip.js";
+import mcpRoutes from "./mcp.js";
 
 const router = express.Router();
 const EXAMPLE_TRIP_PATH = path.resolve(process.cwd(), "examples", "trip.paris.json");
@@ -19,6 +21,13 @@ router.use(eventRoutes);
 
 // Seller side of the marketplace: POST /agents/:agentId/query.
 router.use(marketplaceRoutes);
+
+// Tier-1 -> tier-2 handoff: POST /trip/{plan,settle}. Mounted before /trip/variants so
+// neither shadows the other.
+router.use(tripRoutes);
+
+// The marketplace as MCP tools, for the real client agent. See src/mcp/server.ts.
+router.use(mcpRoutes);
 
 const loadTripTemplate = async () => {
   const raw = await fs.readFile(EXAMPLE_TRIP_PATH, "utf8");
