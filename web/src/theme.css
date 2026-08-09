@@ -1,0 +1,91 @@
+/* Design tokens — docs/tier1-display-spec.md §3.
+ *
+ * Colour is load-bearing here, not decorative: green means settled on-chain,
+ * amber means a payment is pending, crimson means something halted. Nothing
+ * else may use those three. Everything at rest is slate. */
+
+:root {
+  /* bases */
+  --bg: #0b0f19;
+  --surface: #111827;
+  --surface-raised: #172033;
+  --border: #1f2a3d;
+  --border-strong: #33415c;
+
+  /* text */
+  --text: #e5e7eb;
+  --text-dim: #94a3b8;
+  --text-faint: #64748b;
+
+  /* reserved state colours — see the state table in the spec */
+  --settled: #22c55e; /* green  — payment.settled / agent.response ONLY */
+  --settled-dim: #14532d;
+  --pending: #f59e0b; /* amber  — payment.challenge / payment.signed ONLY */
+  --pending-dim: #78350f;
+  --halted: #ef4444; /* crimson — payment.failed / allocation.failed ONLY */
+  --halted-dim: #7f1d1d;
+
+  /* the rating bar carries the entire quality signal (§3) */
+  --star: #fbbf24;
+  --star-empty: #334155;
+
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* React Flow paints its own surfaces; keep them on our bases. */
+.react-flow {
+  background: var(--bg);
+}
+
+.react-flow__attribution {
+  display: none;
+}
+
+/* `considered` — the agent is in the running but nothing has been paid yet. A
+ * white outline that breathes, so the shortlist is obvious without spending one
+ * of the three reserved colours on it. */
+@keyframes pulse-outline {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(229, 231, 235, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(229, 231, 235, 0.14);
+  }
+}
+
+/* Edge labels sit on the dark canvas, so give them a legible plate. */
+.react-flow__edge-textbg {
+  fill: var(--surface);
+}
+
+/* React Flow's controls ship light-themed. */
+.react-flow__controls-button {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  fill: var(--text-dim);
+}
+
+.react-flow__controls-button:hover {
+  background: var(--surface-raised);
+  fill: var(--text);
+}
