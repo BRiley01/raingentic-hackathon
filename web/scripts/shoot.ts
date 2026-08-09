@@ -102,6 +102,25 @@ async function main() {
     labels: document.querySelectorAll(".react-flow__edge-text").length,
   }));
 
+  // Clicking a card must open THAT agent's wallet — and clicking the tx chip
+  // inside it must open the settlement instead, not get swallowed by the card.
+  const clicks: string[] = [];
+  for (const [selector, label] of [
+    ['.react-flow__node[data-id="booking.com"]', "card"],
+    ['.react-flow__node[data-id="booking.com"] a', "tx chip"],
+  ] as const) {
+    const [popup] = await Promise.all([
+      page.waitForEvent("popup", { timeout: 5_000 }).catch(() => null),
+      page.locator(selector).click({ position: { x: 8, y: 8 } }),
+    ]);
+    if (!popup) {
+      clicks.push(`✗ ${label} opened nothing`);
+      continue;
+    }
+    clicks.push(`${label} → ${popup.url()}`);
+    await popup.close();
+  }
+
   await browser.close();
 
   console.log(`\nrendered: ${counts.nodes} nodes, ${counts.edges} edges, ${counts.labels} edge labels`);
@@ -111,6 +130,9 @@ async function main() {
   } else {
     console.log(`✓ every node inside the viewport at 1680×1000`);
   }
+  for (const c of clicks) console.log(`  ${c}`);
+  if (clicks.some((c) => c.startsWith("✗"))) process.exitCode = 1;
+
   if (overlaps.length) {
     console.log(`\n⚠ overlapping nodes — something is being covered up:`);
     for (const o of overlaps) console.log(`   ${o}`);

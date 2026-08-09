@@ -7,6 +7,7 @@
 
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { AgentVisual, AgentState } from "../../state/graph";
+import { addressUrl } from "../../explorer";
 
 const STATE: Record<AgentState, { color: string; label: string }> = {
   idle: { color: "var(--text-faint)", label: "" },
@@ -24,9 +25,18 @@ export default function AgentNode({ data }: NodeProps) {
   const state = STATE[agent.state];
   const isConsidering = agent.state === "considered";
 
+  // Click the card → that agent's wallet on the Monad explorer, in a new tab. The
+  // agent's identity IS its wallet, so "show me this seller" and "show me where
+  // the money went" are the same gesture.
+  const openWallet = () =>
+    window.open(addressUrl(agent.listing.wallet), "_blank", "noopener,noreferrer");
+
   return (
     <div
+      onClick={openWallet}
+      title={`${agent.listing.name} — open wallet ${agent.listing.wallet} on the Monad explorer`}
       style={{
+        cursor: "pointer",
         width: 224,
         background: "var(--surface-raised)",
         border: `1px solid ${
@@ -89,15 +99,23 @@ export default function AgentNode({ data }: NodeProps) {
         </span>
       </div>
 
+      {/* The wallet carries the ↗ because it's the thing the click is about — the
+          whole card is the target, but something has to say so. */}
       <div
         style={{
           fontFamily: "var(--mono)",
           fontSize: 9,
           color: "var(--text-faint)",
           marginTop: 3,
+          display: "flex",
+          alignItems: "center",
+          gap: 4,
         }}
       >
-        {agent.listing.wallet.slice(0, 6)}…{agent.listing.wallet.slice(-4)}
+        <span style={{ textDecoration: "underline", textDecorationStyle: "dotted" }}>
+          {agent.listing.wallet.slice(0, 6)}…{agent.listing.wallet.slice(-4)}
+        </span>
+        <span aria-hidden>↗</span>
       </div>
 
       {/* Quality only exists once we've paid and been answered. */}
@@ -161,6 +179,9 @@ export default function AgentNode({ data }: NodeProps) {
           target="_blank"
           rel="noreferrer"
           onClick={(e) => {
+            // Without this the card's own handler also fires and you land on the
+            // wallet instead of the settlement you clicked.
+            e.stopPropagation();
             if (!agent.explorerUrl) e.preventDefault();
           }}
           style={{
