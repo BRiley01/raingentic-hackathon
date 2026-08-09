@@ -78,6 +78,8 @@ header" but doesn't show how it's obtained. Get it from the sandbox playground
 
 ## Next
 
-- Vendor price re-check before charge (stale-hold freshness).
-- Wire the five domains' `confirm()` stubs to call this settlement path.
 - Optional: step-5 payment-routes for cross-rail money movement.
+
+*(Dropped: the vendor price re-check and "wire the five domains' `confirm()` stubs"
+items. `hold`/`confirm`/`cancel` are dead (4.1) — there are no stubs to wire. The
+settlement path is driven from a `TripRequest` the client agent assembles.)*

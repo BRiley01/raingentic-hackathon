@@ -236,7 +236,21 @@ tier 2, they're tested, and 6.7 puts tier 2 in the demo.
 If so, `src/domain/{flights,hotels,activities,transport,dining}/` and `src/api/routes/` can be
 deleted outright, which removes a lot of misleading scaffolding.
 
-> **A:** _(unanswered)_
+> **A:** Yes — tier 2 stays. And **kill everything to do with `hold`/`confirm`/`cancel`.**
+
+**✅ DONE.** The five `tests/domain/<x>/<x>.test.ts` files are deleted: they asserted only the
+dead interface, and once `hold`/`confirm`/`cancel` were gone their sole surviving assertion was
+"`search` is a function". They were 5 of the repo's 6 red tests.
+
+Also corrected the docs that still presented the dead lifecycle as **live**, which was the more
+dangerous half — `docs/architecture.md` stated "every domain implements search → hold → confirm →
+cancel" as fact, and `docs/api-contracts.md` listed all four as the contract to build against.
+Anyone onboarding tonight would have built the wrong thing.
+
+**Not deleted:** `src/domain/*/booking.ts` and `search.ts`. The providers are still imported by
+`agent/orchestrator.ts`, and `search()` is the one live operation. `holdTtlSeconds` also stays in
+`trip.ts` — it's a validated `TripRequest` field that tier 2 uses, and unrelated to the dead
+provider methods despite the name.
 
 ---
 
