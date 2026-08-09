@@ -1,138 +1,144 @@
-# Travel Booking Agent — Project Guide
+# Agent Marketplace — agents that hire other agents
 
-A multi-agent travel booking platform. Each **booking domain** (flights, hotels, activities, ground transport, dining) is an independent, parallel workstream that plugs into a shared contract, so teams can build without stepping on each other.
+An AI agent shops a marketplace of specialist agents, picks who to hire on **price versus
+rating**, pays them **per question in on-chain USDC micropayments**, and then spends
+**real money** on what they recommended.
 
----
+Two rails, and the gap between them is the point:
 
-## What we're building
-
-An agent-driven travel experience. A user describes a trip; the system searches, holds, and books across five domains, then hands back a coherent plan. Under the hood, an LLM **orchestrator** routes each request to the right domain and stitches the results together.
-
-The design goal is **breadth with consistency**: every booking type behaves the same way (search → hold → confirm → cancel), so adding a new domain later is a matter of filling in one interface, not reinventing the flow.
-
----
-
-## The five domains
-
-| Domain | What it does | Owner team |
+| | Tier 1 — the advice | Tier 2 — the trip |
 |---|---|---|
-| **Flights** | Search, price, hold, and book air travel | TBD |
-| **Hotels** | Room search, availability, booking | TBD |
-| **Activities** | Tours, tickets, experiences, passes | TBD |
-| **Transport** | Rental cars, airport transfers, rail | TBD |
-| **Dining** | Restaurant discovery + reservations | TBD |
+| Who pays whom | client agent → seller agent's wallet | client agent → real merchant |
+| Rail | **x402** micropayments on Monad testnet | **Rain** scoped cards |
+| What's bought | *information* — one answer to one question | the actual flight / hotel / car |
+| Scale | fractions of a dollar | ~$1,700 |
 
-Every domain implements the **same interface** (`search`, `hold`, `confirm`, `cancel`). Learn one, you know all five.
+**Sub-dollar advice moves a $1,700 trip.** That juxtaposition is the pitch, and the live
+canvas renders it.
 
 ---
 
-## Directory structure
+## Run it
 
-```
-travel-agent/
-├── README.md
-├── .env.example
-├── .gitignore
-├── package.json                 # or pyproject.toml
-│
-├── src/
-│   ├── config/                  # env loading, API keys, constants
-│   │   └── index.ts
-│   │
-│   ├── integrations/            # one folder per external API
-│   │   ├── rain/                # auth + request wrapper + types
-│   │   │   ├── client.ts
-│   │   │   ├── types.ts
-│   │   │   └── index.ts
-│   │   └── monad/
-│   │       ├── client.ts
-│   │       ├── types.ts
-│   │       └── index.ts
-│   │
-│   ├── agent/                   # the LLM decision layer
-│   │   ├── tools/               # tool defs, one per domain capability
-│   │   ├── prompts/
-│   │   └── orchestrator.ts      # routes requests to the right domain
-│   │
-│   ├── domain/                  # core logic per booking type
-│   │   ├── flights/
-│   │   │   ├── search.ts
-│   │   │   ├── booking.ts
-│   │   │   └── types.ts
-│   │   ├── hotels/              # (same three-file shape)
-│   │   ├── activities/
-│   │   ├── transport/          # rental cars, transfers, rail
-│   │   ├── dining/             # discovery + reservations
-│   │   └── shared/
-│   │       ├── booking-base.ts  # the common search/hold/confirm interface
-│   │       └── types.ts         # Money, DateRange, Location, Traveler
-│   │
-│   ├── api/                     # your own service endpoints
-│   │   └── routes/
-│   │       ├── flights.ts
-│   │       ├── hotels.ts
-│   │       ├── activities.ts
-│   │       ├── transport.ts
-│   │       └── dining.ts
-│   │
-│   └── shared/                  # utils, logging, error types
-│
-├── tests/
-│   ├── integrations/
-│   ├── domain/                  # one folder per domain
-│   └── agent/
-│
-└── docs/
-    ├── architecture.md
-    └── api-contracts.md         # interface agreements between teams
+Three terminals. Nothing here needs a chain or an API key to *look* right — the display
+ships with a scripted run.
+
+```bash
+# 1. the API (marketplace, MCP server, event stream)
+npm install
+npm run dev                       # :3000
+
+# 2. the canvas
+cd web && npm install && npm run dev    # :5173  → open http://127.0.0.1:5173
+
+# 3. drive a run
+npm run simulate                  # walks the REST API end to end, ~30s
+npm run mcp:drive                 # walks the MCP tools instead
 ```
 
+The canvas has a **SIMULATOR / LIVE** toggle. Simulator plays a scripted run with no
+backend at all; live renders whatever the server is actually emitting. See
+[`web/README.md`](web/README.md).
+
+### With a real LLM driving it
+
+The client agent is [rain-cli](https://github.com/aknlite48/rain-cli) — a terminal coding
+agent that speaks MCP. It needs Bun, an Anthropic key and a real TTY.
+
+```bash
+cd ~/hack/travel-agent          # a dir whose AGENTS.md makes it a buying agent
+rain-code                       # or: bun run --cwd ../rain-cli src/index.ts
+> /mcp                          # Enter on "marketplace" — connect is per-run, every launch
+> I want a week in Paris for two in March. Total budget $1,800. Book it.
+```
+
+### With real money
+
+Payments are simulated until a `.env` supplies all three of `USDC_ADDRESS`,
+`X402_FACILITATOR_URL` and `BUYER_PRIVATE_KEY`. Then an unpaid request to a seller gets a
+real `402`, the buyer signs EIP-3009, the facilitator settles on Monad, and the canvas
+carries clickable transaction hashes. Simulated payments are always **labelled as such** on
+screen — nothing ever implies a settlement that didn't happen.
+
+Only the **buyer** needs funding. The nine seller wallets are receive-only and hold no
+keys, and the facilitator pays gas, so nothing needs MON.
+
 ---
 
-## How the layers fit together
-
-**`integrations/`** — Thin wrappers around external APIs (Rain, Monad). Each isolates auth and request handling for one provider. One team can own an integration without touching anyone else's. *Note: confirm what Rain and Monad each provide (payments? search? settlement?) before wiring them in — they map to different layers depending on their role.*
-
-**`domain/`** — The business logic, one folder per booking type. Framework-agnostic and independently testable. This is where the five teams do most of their work.
-
-**`domain/shared/booking-base.ts`** — The heart of the design. It defines one interface every booking type implements:
+## How it fits together
 
 ```
-search(criteria)  → results
-hold(selection)   → held booking (temporary)
-confirm(hold)     → confirmed booking
-cancel(booking)   → cancellation
+rain-cli (LLM)  ──MCP──►  /api/mcp
+                            │   tools: start_trip_run, list_agents, hire_agent,
+                            │          rate_agent, settle_trip, trip_status
+                            ▼
+                    marketplace + sellers  ──x402──►  Monad testnet
+                            │
+                            ├─ emit() ──►  /api/events (SSE)  ──►  canvas
+                            │
+                            └─ TripRequest ──►  allocator ──► Rain scoped cards
 ```
 
-Because all domains conform to this, the orchestrator treats them uniformly and teams build in parallel against a fixed contract.
+**The client agent orchestrates; the server holds the artifacts.** `hire_agent`
+accumulates `LineItem`s server-side and `settle_trip` takes no arguments, so the LLM never
+touches a `TripRequest` — it cannot emit an invalid one, mangle a payload, or lose an item
+to its context window.
 
-**`agent/orchestrator.ts`** — The LLM layer. Interprets the user's request, decides which domain(s) to call, and sequences the results into a coherent trip.
+**Events are emitted server-side**, so the client repo needs no knowledge of the event
+contract. Nothing can drift.
 
-**`api/`** — Your own HTTP endpoints, one route file per domain.
+### Layout
 
----
-
-## Why this structure distributes cleanly
-
-Each domain folder mirrors the same three-file shape (`search`, `booking`, `types`). Five teams, five parallel tracks, one shared contract in `domain/shared/`. A team owns its domain end-to-end — integration, logic, tests — without merge conflicts against other domains.
-
-The coordination point is **`docs/api-contracts.md`**. Define the interfaces there first; then everyone builds against agreed shapes and integrates late instead of early.
-
----
-
-## Getting started (per team)
-
-1. Read `docs/architecture.md` and `docs/api-contracts.md`.
-2. Look at `domain/shared/booking-base.ts` — this is the contract you implement.
-3. Copy an existing domain folder as your template (all five share the same shape).
-4. Fill in `search.ts`, `booking.ts`, `types.ts` for your domain.
-5. Wire your provider calls through the relevant folder in `integrations/`.
-6. Add tests under `tests/domain/<your-domain>/`.
+| | |
+|---|---|
+| `src/agent/agents.seed.ts` | the nine seller agents — the canonical marketplace |
+| `src/marketplace/` | what a seller returns (`seller.ts`), and the run in flight (`run-state.ts`) |
+| `src/mcp/server.ts` | the marketplace as MCP tools — how the real client agent shops |
+| `src/payments/x402.ts` | real USDC settlement, both sides |
+| `src/trip/service.ts` | tier‑1 → tier‑2: allocate, provision cards, settle |
+| `src/events/` | the event contract (`types.ts`) and the bus (`bus.ts`) |
+| `src/domain/shared/` | `trip.ts` (the handoff schema), `allocator.ts`, `scope-cards.ts` |
+| `src/dev/` | `simulate-run.ts` and `mcp-drive.ts` — harnesses, not product |
+| `web/` | the canvas (its own `package.json`) |
 
 ---
 
-## Open questions to resolve first
+## Checks
 
-- **What do Rain and Monad actually provide?** Payments, search, identity, on-chain settlement? This determines where they sit in `integrations/` and which domains depend on them.
-- **Payment & confirmation gating.** Autonomous charging is the riskiest step — decide where a human approval step lives before any real booking is confirmed.
-- **Price/availability freshness.** Held selections go stale; the agent must re-check right before `confirm`.
+```bash
+npm test              # 45 tests
+npm run typecheck
+cd web && npm run typecheck && npm run verify:mock && npm run shoot
+```
+
+`verify:mock` asserts the scripted run's event order *and* that the `TripRequest` it hands
+tier 2 passes tier 2's own zod schema. `shoot` screenshots the canvas and fails on clipped
+nodes, overlapping nodes, or console errors.
+
+---
+
+## Docs
+
+| | |
+|---|---|
+| [`docs/api-contracts.md`](docs/api-contracts.md) | every endpoint + the MCP tools. **Start here.** |
+| [`docs/tier1-events.md`](docs/tier1-events.md) | the event contract the canvas consumes |
+| [`docs/tier1-display-spec.md`](docs/tier1-display-spec.md) | why the canvas looks the way it does |
+| [`docs/marketplace-questions.md`](docs/marketplace-questions.md) | every decision, and why |
+| [`docs/open-questions.md`](docs/open-questions.md) | Monad/Rain notes and the x402 v1/v2 trap |
+
+---
+
+## Two things that will trip you up
+
+**`npm install` has to run inside `web/` as well** — it has its own `package.json`, and a
+root install leaves the canvas broken with a confusing error. Needs Node 20.19+/22.12+.
+
+**`data/` is runtime state, not source.** Ratings persist there and it's gitignored;
+`agents.json` is regenerated from `agents.seed.ts` whenever `SEED_VERSION` changes. To
+reset a rehearsal: `curl -X POST localhost:3000/api/marketplace/reset`.
+
+## Dead — do not build against it
+
+`search → hold → confirm → cancel` is gone: deleted, not deferred (question 4.1).
+`search()` is the only provider operation. Money moves on the two rails instead.
