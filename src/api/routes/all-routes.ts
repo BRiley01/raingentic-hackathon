@@ -8,6 +8,7 @@ import {
   readAgents,
   recordAgentRating,
 } from "../../agent/file-store.js";
+import { AGENT_TYPES, parseAgentType } from "../../agent/agents.seed.js";
 import eventRoutes from "./events.js";
 import marketplaceRoutes from "./marketplace.js";
 
@@ -65,10 +66,30 @@ const loadTripTemplate = async () => {
 
 router.get("/health", (_req: any, res: any) => res.json({ ok: true }));
 
-router.get("/agents", async (_req: any, res: any) => {
+// GET /agents            every listing
+// GET /agents?type=hotel  one category (singular or plural both accepted)
+//
+// The response shape is identical either way, so a caller never has to branch —
+// note that means `totalAgents` and `averageRating` describe the RESULT SET, not
+// the whole marketplace, when a filter is applied.
+router.get("/agents", async (req: any, res: any) => {
+  const type = parseAgentType(req.query.type);
+  if (type === null) {
+    // Deliberately not an empty array: with only three valid values, a silent []
+    // means a typo is indistinguishable from "no agents of that kind".
+    return res.status(400).json({
+      error: `unknown type: ${req.query.type}`,
+      valid: AGENT_TYPES,
+    });
+  }
+
   await ensureDefaultAgents();
   const agents = await readAgents();
-  res.json(getAgentStatsSnapshot(agents));
+  const matching = type
+    ? agents.filter((agent: any) => String(agent.type ?? "").toLowerCase() === type)
+    : agents;
+
+  return res.json(getAgentStatsSnapshot(matching));
 });
 
 router.post("/agents/rating", async (req: any, res: any) => {

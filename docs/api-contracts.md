@@ -97,9 +97,18 @@ agent *of that type*, so `booking.com` reports `avgRating: 4.375` while its own
 `rating` is `4.9`. It reads like the agent's rating and isn't. Both should come out
 of the response (see the inconsistencies list).
 
-### ❌ `GET /api/agents?type=hotel`
+### ✅ `GET /api/agents?type=hotel`
 
-Server-side filtering. Today every caller fetches all nine and filters locally.
+Server-side filtering. Same response shape as unfiltered, so callers never branch —
+which does mean `totalAgents` and `averageRating` describe the **result set**, not
+the whole marketplace, when a filter is applied.
+
+- Accepts **singular or plural** (`hotel` / `hotels`), case- and
+  whitespace-insensitive. The trip domains are plural and the agent types are
+  singular; making callers remember which is which is a waste of a night.
+- An **unknown type is a `400`** carrying the valid values, not an empty array. With
+  three legal values, a silent `[]` makes a typo indistinguishable from "no agents of
+  that kind".
 
 ### ❌ `GET /api/agents/:agentId`
 

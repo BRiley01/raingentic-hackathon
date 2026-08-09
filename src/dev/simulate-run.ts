@@ -147,8 +147,10 @@ async function main() {
     await emit("marketplace.query", { queryId, category: domain });
     await sleep(600);
 
-    const snapshot = await api<{ agents: Listing[] }>("/api/agents");
-    const listings = snapshot.agents.filter((a) => a.type === type);
+    // Filter server-side. Fetching all nine and filtering here would leave the
+    // ?type= endpoint untested by the one thing that's supposed to exercise it.
+    const snapshot = await api<{ agents: Listing[] }>(`/api/agents?type=${type}`);
+    const listings = snapshot.agents;
     if (listings.length === 0) throw new Error(`no agents of type ${type} in the marketplace`);
 
     // The wire carries `category` on the trip.ts Domain enum; the records carry

@@ -57,6 +57,29 @@ export const TYPE_LABEL: Record<AgentType, string> = {
 
 export const AGENT_TYPES: AgentType[] = ["flight", "hotel", "car"];
 
+/**
+ * Normalise a caller-supplied agent type.
+ *
+ * Accepts singular or plural ("hotel" / "hotels") because a client will reasonably
+ * guess either — the trip domains are plural, the agent types are singular, and
+ * making people remember which is which at 3am is a waste of everyone's night.
+ *
+ * Returns the canonical type, `undefined` for "no filter given", or `null` for a
+ * value that isn't an agent type at all. Callers should reject `null` rather than
+ * silently returning everything or nothing.
+ */
+export function parseAgentType(raw: unknown): AgentType | undefined | null {
+  const value = String(raw ?? "")
+    .trim()
+    .toLowerCase();
+  if (!value) return undefined;
+
+  const singular = value.endsWith("s") ? value.slice(0, -1) : value;
+  if ((AGENT_TYPES as string[]).includes(value)) return value as AgentType;
+  if ((AGENT_TYPES as string[]).includes(singular)) return singular as AgentType;
+  return null;
+}
+
 function agent(
   id: number,
   agentId: string,
