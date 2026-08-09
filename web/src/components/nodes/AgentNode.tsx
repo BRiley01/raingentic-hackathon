@@ -118,13 +118,21 @@ export default function AgentNode({ data }: NodeProps) {
         <span aria-hidden>↗</span>
       </div>
 
-      {/* Quality only exists once we've paid and been answered. */}
+      {/* The CLIENT's score for the answer it received — from agent.response, so it
+          can only exist after payment.
+
+          `AgentListing.qualityPercent` also reaches the browser, and the UI must
+          NEVER render it. It's the knob that lets nine sellers exist without nine
+          real agents (question 7.4) — showing it would reveal that the answer's
+          quality was predetermined, and would tell a viewer how good an agent is
+          before anyone pays to find out. Rating and price are the only signals a
+          buyer gets up front. */}
       {agent.quality !== undefined && (
         <>
           <div style={{ borderTop: "1px solid var(--border)", margin: "8px -12px 7px" }} />
           <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
             <span style={{ fontSize: 9, color: "var(--text-dim)", letterSpacing: "0.06em" }}>
-              QUALITY
+              CLIENT SCORE
             </span>
             <div
               style={{
