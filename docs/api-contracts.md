@@ -10,18 +10,59 @@ Base path is `/api`. Everything is JSON. The Vite dev server proxies `/api` to
 
 ---
 
+## Agent identity — three fields, three jobs
+
+Agents are addressed by **UUID**, never by name. A vendor name is display data: it
+can change, it collides, and it has no business being a primary key.
+
+| Field | | |
+|---|---|---|
+| `agentId` | `51738b18-927a-47b0-80e9-d8659c6363cf` | **the key.** Opaque, stable, what every endpoint and event uses |
+| `vendor` | `booking.com` | the merchant it fronts → `LineItem.vendor`, `merchantAllowlist[0]`, `vendorUrl` |
+| `name` | `booking.com` | display only. Same as `vendor` today; not guaranteed to stay that way |
+
+**`vendor` is now a real field, because `agentId` used to be doing both jobs.**
+Splitting them costs one field and buys a key that can't break when marketing
+renames something.
+
+**The UUIDs are hardcoded in the seed, deliberately.** Generating them at seed time
+would give every teammate different ids, change them on every re-seed, and break any
+id a test or the CLI agent hardcodes. These are the ids, permanently:
+
+```
+5911db48-8fe0-4b04-a9d3-4f3a5aa6c38e  kayak.com        flight
+dcd84bff-d8f3-4ef0-a558-fcd64d9ad3c7  priceline.com    flight
+11c130ef-a81c-4e61-9419-86f9f20d63ad  united.com       flight
+51738b18-927a-47b0-80e9-d8659c6363cf  booking.com      hotel
+6e60082b-9a2d-4f21-a072-e3e11eacaee6  hotels.com       hotel
+eef6a007-0258-4866-b68c-947f7348e9c0  expedia.com      hotel
+04aefebd-7520-4855-b9af-d8259bd90feb  hertz.com        car
+4673637b-fe3a-49f6-bf5a-4053b9bc7d0f  avis.com         car
+02bd8f54-cb60-418a-a5dc-0d4f30853fc1  enterprise.com   car
+```
+
+⚠️ **The event log gets less readable.** `agentId` in `client.select`,
+`payment.settled` etc. is now a UUID, so anything rendering it raw shows
+`dcd84bff…` instead of `priceline.com`. Displays must join through
+`marketplace.results` to get `name` — the canvas already does for cards, but raw
+event views need it too.
+
+---
+
 ## The whole client-agent path
 
 Four calls per category, then one handoff. If you're writing the CLI agent, this is
 the entire surface you need:
 
 ```
-GET  /api/agents?type=hotel              → who's selling, at what price and rating
-POST /api/agents/booking.com/query       → pay (x402, later) and get one LineItem
-POST /api/agents/booking.com/rating      → write back what it was worth
+GET  /api/agents?type=hotel                        → who's selling, at what price and rating
+POST /api/agents/51738b18-…-d8659c6363cf/query      → pay (x402, later) and get one LineItem
+POST /api/agents/51738b18-…-d8659c6363cf/rating     → write back what it was worth
                         ...repeat per category, collect the LineItems...
-POST /api/trip/settle                    → hand the assembled TripRequest to tier 2
+POST /api/trip/settle                              → hand the assembled TripRequest to tier 2
 ```
+
+You get the UUIDs from `GET /api/agents` — never construct or assume them.
 
 Two of those five don't exist yet. **The trip handoff is the biggest gap** — right
 now `allocate()` and `provisionAndSettle()` are only reachable in-process, so a CLI
@@ -38,7 +79,9 @@ The directory. Returns the stats snapshot:
 ```ts
 {
   agents: [{
-    id, agentId, name, type,          // type is SINGULAR: "flight" | "hotel" | "car"
+    agentId,                          // UUID — the key
+    vendor, name,                     // "booking.com" — merchant / display
+    type,                             // SINGULAR: "flight" | "hotel" | "car"
     rating, ratingCount,              // the agent's own reputation
     avgRating, ratingCalls,           // ⚠️ TYPE-level aggregate, not this agent's
     priceUsdc, price,                 // charge per query, USDC
@@ -59,7 +102,7 @@ Server-side filtering. Today every caller fetches all nine and filters locally.
 
 ### ❌ `GET /api/agents/:agentId`
 
-One agent. Needed to re-read reputation after rating it, and by the swarm.
+One agent, by UUID. Needed to re-read reputation after rating it, and by the swarm.
 
 ### ⚠️ `POST /api/agent_type/search`
 
@@ -84,7 +127,8 @@ The seller. One payment buys one answer (question 1.3).
 
 // response
 {
-  agentId: "booking.com",
+  agentId: "51738b18-927a-47b0-80e9-d8659c6363cf",
+  vendor: "booking.com",
   quality: 0.91,        // 0–1, SELF-DECLARED. Nobody audits it; the client rates it.
   lineItem: { id, domain, label, vendor, vendorUrl, maxSpend, merchantAllowlist, payable }
 }
@@ -137,7 +181,7 @@ the harness rather than read back from the server.
 { stars: 1..5 }
 
 // response — the agent's updated reputation
-{ agentId, rating, ratingCount }
+{ agentId, vendor, rating, ratingCount }
 ```
 
 Must fold into that agent's `rating`/`ratingCount` and **persist to
@@ -217,8 +261,11 @@ only reset is deleting `data/agents.json` and `data/.seed-version`.
 
 ## Naming inconsistencies worth fixing while it's cheap
 
-- `POST /api/agents/rating` (collection-level) vs `POST /api/agents/:agentId/query`
-  (resource-level). Rating should be `/api/agents/:agentId/rating`.
+- `POST /api/agents/rating` (collection-level, keyed by type) vs
+  `POST /api/agents/:agentId/query` (resource-level, keyed by UUID). Rating should be
+  `/api/agents/:agentId/rating`.
+- `id` (numeric, from the original seed) is now redundant alongside `agentId`. Kept
+  for compatibility; nothing should read it.
 - `agent_type` is snake_case; nothing else is.
 - `GET /api/agents` and `POST /api/agent_type/search` both return agents, **in
   different shapes**. One of them should go.
