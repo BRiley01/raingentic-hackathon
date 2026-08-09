@@ -2,7 +2,7 @@
 // toggle: when a beat doesn't render right, the first question is always "did the
 // event arrive, and in what order?" — and this answers it in one glance.
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { DemoEvent } from "@shared/events/types.js";
 
 const ACCENT: Record<string, string> = {
@@ -16,6 +16,20 @@ const ACCENT: Record<string, string> = {
 
 export default function EventLog({ events }: { events: DemoEvent[] }) {
   const endRef = useRef<HTMLDivElement>(null);
+
+  // agentId is an opaque UUID, so every event that names an agent would otherwise
+  // render as `dcd84bff…`. marketplace.results is the one event carrying both the id
+  // and the name, so it's the join. Falls back to the raw id for an agent we somehow
+  // never saw listed — better a UUID than a blank.
+  const nameOf = useMemo(() => {
+    const names = new Map<string, string>();
+    for (const e of events) {
+      if (e.type === "marketplace.results") {
+        for (const a of e.agents) names.set(a.agentId, a.name ?? a.agentId);
+      }
+    }
+    return (agentId: string) => names.get(agentId) ?? agentId;
+  }, [events.length]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end" });
@@ -54,7 +68,7 @@ export default function EventLog({ events }: { events: DemoEvent[] }) {
           </span>
           <span>
             <span style={{ color: ACCENT[e.type] ?? "var(--text)" }}>{e.type}</span>
-            <span style={{ color: "var(--text-faint)" }}> {detail(e)}</span>
+            <span style={{ color: "var(--text-faint)" }}> {detail(e, nameOf)}</span>
           </span>
         </div>
       ))}
@@ -64,7 +78,7 @@ export default function EventLog({ events }: { events: DemoEvent[] }) {
 }
 
 /** The one field that matters per event type — enough to follow the run. */
-function detail(e: DemoEvent): string {
+function detail(e: DemoEvent, nameOf: (agentId: string) => string): string {
   switch (e.type) {
     case "run.started":
       return `$${(e.budgetCents / 100).toFixed(0)} budget`;
@@ -75,22 +89,22 @@ function detail(e: DemoEvent): string {
     case "client.deliberate":
       return `${e.considering.length} candidates`;
     case "client.select":
-      return e.agentId;
+      return nameOf(e.agentId);
     case "payment.challenge":
-      return `${e.agentId} · $${e.amountUsdc}`;
+      return `${nameOf(e.agentId)} · $${e.amountUsdc}`;
     case "payment.signed":
-      return e.agentId;
+      return nameOf(e.agentId);
     case "payment.settled":
       // No txHash on a simulated payment — there's no transaction to show.
       return e.txHash
-        ? `${e.agentId} · ${e.txHash.slice(0, 10)}… · ${e.durationMs}ms`
-        : `${e.agentId} · simulated`;
+        ? `${nameOf(e.agentId)} · ${e.txHash.slice(0, 10)}… · ${e.durationMs}ms`
+        : `${nameOf(e.agentId)} · simulated`;
     case "payment.failed":
-      return `${e.agentId} · ${e.reason}`;
+      return `${nameOf(e.agentId)} · ${e.reason}`;
     case "agent.response":
-      return `${e.agentId} · q=${e.quality}`;
+      return `${nameOf(e.agentId)} · q=${e.quality}`;
     case "client.rating":
-      return `${e.agentId} · ${e.stars}★ → ${e.newRating} (${e.newRatingCount})`;
+      return `${nameOf(e.agentId)} · ${e.stars}★ → ${e.newRating} (${e.newRatingCount})`;
     case "trip.assembled":
       return `${e.trip.items.length} items`;
     case "allocation.ok":

@@ -83,8 +83,7 @@ The directory. Returns the stats snapshot:
     name,                             // "booking.com" — display AND LineItem.vendor
     type,                             // SINGULAR: "flight" | "hotel" | "car"
     rating, ratingCount,              // the agent's own reputation
-    avgRating, ratingCalls,           // ⚠️ TYPE-level aggregate, not this agent's
-    priceUsdc, price,                 // charge per query, USDC
+    priceUsdc,                        // charge per query, USDC — the only price field
     qualityPercent,                   // 0–100 advertised (agent.response.quality is 0–1)
     wallet,                           // x402 payTo — receive-only, needs no funding
   }],
@@ -92,9 +91,11 @@ The directory. Returns the stats snapshot:
 }
 ```
 
-⚠️ **`avgRating` is a trap.** It's the average across every agent *of that type*, so
-`booking.com` currently reports `avgRating: 4.375` while its own `rating` is `4.9`.
-Read `rating`, never `avgRating`, when you mean "how good is this agent".
+⚠️ The response also still contains **`avgRating` and `ratingCalls`, which are not
+part of this contract — don't read them.** `avgRating` is the average across every
+agent *of that type*, so `booking.com` reports `avgRating: 4.375` while its own
+`rating` is `4.9`. It reads like the agent's rating and isn't. Both should come out
+of the response (see the inconsistencies list).
 
 ### ❌ `GET /api/agents?type=hotel`
 
@@ -266,6 +267,10 @@ only reset is deleting `data/agents.json` and `data/.seed-version`.
   `/api/agents/:agentId/rating`.
 - `id` (numeric, from the original seed) is now redundant alongside `agentId`. Kept
   for compatibility; nothing should read it.
+- `avgRating` and `ratingCalls` should come **out** of the response. `avgRating` is a
+  type-level aggregate that reads as the agent's own rating and isn't, and neither is
+  part of the contract. Removing them breaks `tests/api/agent-type.test.ts`, which
+  asserts both are present — that test needs updating in the same change.
 - `agent_type` is snake_case; nothing else is.
 - `GET /api/agents` and `POST /api/agent_type/search` both return agents, **in
   different shapes**. One of them should go.

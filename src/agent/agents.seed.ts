@@ -30,10 +30,8 @@ export interface AgentRecord {
    *  (stars - rating) / (count + 1) >= 0.05, so counts in the hundreds make the
    *  post-transaction rating write-back mathematically invisible. */
   ratingCount: number;
-  /** Charge per query, in USDC. */
+  /** Charge per query, in USDC. The ONLY price field — see file-store's snapshot. */
   priceUsdc: number;
-  /** Kept as `price` too, because getAgentStatsSnapshot() reads that name. */
-  price: number;
   /** x402 payTo. Receive-only, so these never need funding — only the buyer does. */
   wallet: string;
 }
@@ -78,7 +76,6 @@ function agent(
     rating,
     ratingCount,
     priceUsdc,
-    price: priceUsdc,
     wallet,
   };
 }

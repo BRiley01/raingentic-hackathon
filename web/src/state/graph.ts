@@ -530,7 +530,9 @@ export function buildGraph(events: DemoEvent[]): GraphModel {
       targetHandle: "in",
       animated: true,
       style: { stroke: "var(--star)", strokeWidth: 1.5 },
-      label: `${f.lastRated} +${rated?.ratingDelta ?? ""}★`,
+      // The agent's NAME, not its id — agentId is an opaque UUID and would put
+      // `dcd84bff…` on the canvas.
+      label: `${rated?.listing.name ?? f.lastRated} +${rated?.ratingDelta ?? ""}★`,
       labelStyle: { fill: "var(--star)", fontSize: 10, fontWeight: 600 },
       labelBgStyle: { fill: "var(--surface)" },
     });

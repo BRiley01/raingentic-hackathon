@@ -44,12 +44,14 @@ export function getAgentStatsSnapshot(agents: any[] = []) {
       rating,
       avgRating,
       ratingCalls: stats.calls,
-      price: safeNumber(agent.price ?? agent.amount ?? 0, 0),
-      // Additive passthrough: a buyer can't shop without a price and can't pay
-      // without a wallet, and the display needs ratingCount to show a rating
-      // moving. Purely extra fields — nothing that read this before is affected.
+      // A buyer can't shop without a price and can't pay without a wallet, and the
+      // display needs ratingCount to show a rating moving.
+      //
+      // `priceUsdc` is the ONLY price field. There was briefly a `price` alias so
+      // this function could keep reading the name it already used — two names for
+      // one value, which is how they drift apart.
       agentId: agent.agentId ?? String(agent.name ?? agent.id),
-      priceUsdc: safeNumber(agent.priceUsdc ?? agent.price ?? 0, 0),
+      priceUsdc: safeNumber(agent.priceUsdc, 0),
       ratingCount: safeNumber(agent.ratingCount, 0),
       qualityPercent: safeNumber(agent.qualityPercent, 0),
       wallet: agent.wallet ?? "",
