@@ -27,6 +27,12 @@ router.get("/events", (req: any, res: any) => {
   });
   res.flushHeaders?.();
 
+  // Flush a comment immediately. Headers alone don't reach the browser through an
+  // intermediary (the Vite dev proxy included) until some body follows, so without
+  // this EventSource never fires `onopen` on a stream that has nothing buffered —
+  // and the UI cannot tell "connected but quiet" from "still connecting".
+  res.write(": connected\n\n");
+
   const write = (event: DemoEvent) => {
     res.write(`id: ${event.seq}\ndata: ${JSON.stringify(event)}\n\n`);
   };
