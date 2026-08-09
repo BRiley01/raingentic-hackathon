@@ -14,10 +14,16 @@ of rain-cli required.
 
 ```bash
 cd clients/buyer          # this directory becomes the agent's world
-rain-code                 # or: bun run --cwd ~/hack/rain-cli src/index.ts
+rain-code                 # or: bun ~/hack/rain-cli/src/index.ts  (see below)
 > /mcp                    # Enter on "marketplace" — connect is per-run, every launch
 > I want a week in Paris for two in March. Total budget $1,800. Book it.
 ```
+
+**Not `bun run --cwd ~/hack/rain-cli src/index.ts`.** `--cwd` moves the working directory to
+rain-cli, and the persona is *read from the working directory* — rain-cli has no `AGENTS.md`,
+so you get a coding agent pointed at rain-cli's own source instead of a buyer. Running the
+script by absolute path keeps cwd here, which is the whole mechanism. Bun resolves the
+imports against rain-cli's `node_modules` either way.
 
 If the agent starts exploring the repo instead of buying — this directory sits inside a git
 tree, which it can detect — copy `AGENTS.md` to an empty directory outside the repo and run

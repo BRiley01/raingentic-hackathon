@@ -1,0 +1,55 @@
+# Deploy:  flyctl deploy --ha=false
+#
+# --ha=false IS NOT OPTIONAL. Fly adds a second machine for high availability on
+# every deploy that doesn't pass it, and min_machines_running below does not stop
+# it. Two machines means two processes each holding their own run, event buffer and
+# ratings file: the canvas would render one machine's reality while the MCP client
+# drove the other's, and which one you got would depend on the load balancer. The
+# first deploy hit exactly this and was scaled back with `flyctl scale count 1`.
+#
+# Secrets — never in this file:
+#   flyctl secrets set BUYER_PRIVATE_KEY=0x… USDC_ADDRESS=0x… X402_FACILITATOR_URL=…
+#   flyctl secrets set RAIN_MODE=live RAIN_API_KEY=… RAIN_USER_ID=… \
+#                      RAIN_CONTRACT_ID=… RAIN_SESSION_ID=… RAIN_TEAM_ID=…
+
+app = "raingentic-marketplace"
+primary_region = "iad"
+
+[build]
+
+[env]
+  PORT = "3000"
+  # Overridden by `flyctl secrets set RAIN_MODE=live` when the card creds land.
+  RAIN_MODE = "mock"
+  MONAD_CHAIN_ID = "10143"
+  MONAD_EXPLORER_URL = "https://testnet.monadvision.com"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+
+  # THE LOAD-BEARING SETTING. This process holds the active run, the 500-event
+  # replay buffer and the ratings file in memory and on local disk. Stopping the
+  # machine drops every SSE connection and erases the run mid-demo, and a second
+  # machine would serve a different reality than the one the MCP client is driving.
+  # One machine, always up.
+  auto_stop_machines = "off"
+  # true, NOT false. This does not create machines — it lets fly-proxy WAKE a
+  # stopped one on an incoming request. With it off, anything that stops the
+  # machine (a trial timeout, an OOM, a `flyctl machine stop`) leaves the app
+  # permanently unreachable and the proxy logging "could not find a good
+  # candidate within 40 attempts at load balancing". Costs nothing while the
+  # machine is up, which auto_stop_machines = "off" already intends it to be.
+  auto_start_machines = true
+  min_machines_running = 1
+
+  # fly-proxy idles out a quiet HTTP connection; /api/events writes a `: ping`
+  # comment every 15s (src/api/routes/events.ts), which keeps the stream open.
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 200
+    soft_limit = 150
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

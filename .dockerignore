@@ -1,0 +1,24 @@
+node_modules
+web/node_modules
+
+# Built in the image, never copied in — a stale local dist is the classic way to
+# deploy a canvas that doesn't match the code.
+dist
+web/dist
+web/shots
+
+.git
+.gitignore
+
+# Secrets reach the container through `fly secrets set`, never through the image.
+.env
+
+# Runtime marketplace state. Shipping it would deploy whatever the last rehearsal
+# left the ratings at; agents.json is reseeded from agents.seed.ts on boot.
+data
+
+tests
+docs
+examples
+clients
+*.log

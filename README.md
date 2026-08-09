@@ -24,6 +24,10 @@ canvas renders it.
 > (with on-chain transaction hashes you can look up), which five files to read, and the
 > design decisions behind them. Three minutes.
 
+**Live:** <https://raingentic-marketplace.fly.dev/?mode=live> — the canvas, rendering the
+deployed backend's real event stream. Its MCP endpoint is `/api/mcp` on the same host, so a
+client agent anywhere can shop this marketplace with nothing running locally.
+
 ---
 
 ## Run it
@@ -55,7 +59,7 @@ agent that speaks MCP. It needs Bun, an Anthropic key and a real TTY.
 
 ```bash
 cd clients/buyer                # its AGENTS.md makes rain-cli act as a buyer, not a coder
-rain-code                       # or: bun run --cwd ~/hack/rain-cli src/index.ts
+rain-code                       # or: bun ~/hack/rain-cli/src/index.ts
 > /mcp                          # Enter on "marketplace" — connect is per-run, every launch
 > I want a week in Paris for two in March. Total budget $1,800. Book it.
 ```
@@ -70,6 +74,22 @@ screen — nothing ever implies a settlement that didn't happen.
 
 Only the **buyer** needs funding. The nine seller wallets are receive-only and hold no
 keys, and the facilitator pays gas, so nothing needs MON.
+
+### Deploying it
+
+One Fly app serves the API, the MCP endpoint and the built canvas together — the UI fetches
+relative URLs, so same-origin means no CORS, and `hire_agent`'s x402 self-call stays on the
+same machine as the paywall it has to satisfy.
+
+```bash
+flyctl deploy --ha=false
+```
+
+**`--ha=false` is not optional.** Fly adds a second machine on any deploy without it, and
+this process holds the active run, the event replay buffer and the ratings file in memory
+and on local disk — two machines means the canvas renders one reality while the client agent
+drives another. See the comments in [`fly.toml`](fly.toml); secrets go in with
+`flyctl secrets import < .env`, never in the image.
 
 ---
 
