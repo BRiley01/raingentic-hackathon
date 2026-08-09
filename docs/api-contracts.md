@@ -10,20 +10,20 @@ Base path is `/api`. Everything is JSON. The Vite dev server proxies `/api` to
 
 ---
 
-## Agent identity — three fields, three jobs
+## Agent identity — a key and a name
 
-Agents are addressed by **UUID**, never by name. A vendor name is display data: it
-can change, it collides, and it has no business being a primary key.
+Agents are addressed by **UUID**, never by name. A name is display data: it can
+change, it collides, and it has no business being a primary key.
 
 | Field | | |
 |---|---|---|
 | `agentId` | `51738b18-927a-47b0-80e9-d8659c6363cf` | **the key.** Opaque, stable, what every endpoint and event uses |
-| `vendor` | `booking.com` | the merchant it fronts → `LineItem.vendor`, `merchantAllowlist[0]`, `vendorUrl` |
-| `name` | `booking.com` | display only. Same as `vendor` today; not guaranteed to stay that way |
+| `name` | `booking.com` | the agent's name — which *is* the merchant it fronts |
 
-**`vendor` is now a real field, because `agentId` used to be doing both jobs.**
-Splitting them costs one field and buys a key that can't break when marketing
-renames something.
+That's the whole identity. Agents are named for the vendor they represent, so the
+name does double duty: it's what a human reads on the card, **and** it's what fills
+`LineItem.vendor`, `merchantAllowlist[0]` and the basis for `vendorUrl` when the
+seller answers. No separate `vendor` field — one name, one mapping.
 
 **The UUIDs are hardcoded in the seed, deliberately.** Generating them at seed time
 would give every teammate different ids, change them on every re-seed, and break any
@@ -80,7 +80,7 @@ The directory. Returns the stats snapshot:
 {
   agents: [{
     agentId,                          // UUID — the key
-    vendor, name,                     // "booking.com" — merchant / display
+    name,                             // "booking.com" — display AND LineItem.vendor
     type,                             // SINGULAR: "flight" | "hotel" | "car"
     rating, ratingCount,              // the agent's own reputation
     avgRating, ratingCalls,           // ⚠️ TYPE-level aggregate, not this agent's
@@ -128,7 +128,7 @@ The seller. One payment buys one answer (question 1.3).
 // response
 {
   agentId: "51738b18-927a-47b0-80e9-d8659c6363cf",
-  vendor: "booking.com",
+  name: "booking.com",
   quality: 0.91,        // 0–1, SELF-DECLARED. Nobody audits it; the client rates it.
   lineItem: { id, domain, label, vendor, vendorUrl, maxSpend, merchantAllowlist, payable }
 }
@@ -181,7 +181,7 @@ the harness rather than read back from the server.
 { stars: 1..5 }
 
 // response — the agent's updated reputation
-{ agentId, vendor, rating, ratingCount }
+{ agentId, name, rating, ratingCount }
 ```
 
 Must fold into that agent's `rating`/`ratingCount` and **persist to
