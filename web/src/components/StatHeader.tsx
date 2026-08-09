@@ -4,6 +4,9 @@
 // juxtaposition IS the pitch, so both numbers are large and side by side. Values
 // are props with zeroed defaults — the reducer feeds them in step 7.
 
+import { MODE_DESCRIPTION, MODE_LABEL, MODES, modeHref, type Mode } from "../mode";
+import type { StreamStatus } from "../useEventStream";
+
 type Props = {
   tier1SpentUsdc?: number;
   agentCount?: number;
@@ -13,8 +16,10 @@ type Props = {
   goal?: string;
   budgetCents?: number;
   complete?: boolean;
-  /** Which source is driving the canvas. Never demo the wrong one by accident. */
-  source?: "mock" | "live";
+  /** Which mode is driving the canvas. Never demo the wrong one by accident. */
+  mode?: Mode;
+  /** Live only: whether the stream is actually connected. */
+  status?: StreamStatus;
 };
 
 const usd = (cents: number) =>
@@ -28,7 +33,8 @@ export default function StatHeader({
   cardCount = 0,
   goal,
   complete = false,
-  source = "mock",
+  mode = "simulator",
+  status = "idle",
 }: Props) {
   return (
     <header
@@ -67,18 +73,61 @@ export default function StatHeader({
             {goal}
           </div>
         )}
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-          {/* Which source is driving this. Knowing at a glance whether you're on
-              the mock or the live chain matters more at 2am than it sounds. */}
-          <Chip color={source === "live" ? "var(--settled)" : "var(--text-faint)"}>
-            {source === "live" ? "live" : "mock"}
-          </Chip>
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", alignItems: "center" }}>
+          <ModeSwitch mode={mode} status={status} />
           {/* Real vendor names, synthetic ratings — say so, so nobody reads the
               numbers as real assessments (spec §1). */}
           <Chip>simulated data</Chip>
         </div>
       </div>
     </header>
+  );
+}
+
+/**
+ * A real control, not a label. Switching mode is a full reload on purpose: a fresh
+ * EventSource or a fresh simulator run, with no state carried across from the mode
+ * you just left.
+ */
+function ModeSwitch({ mode, status }: { mode: Mode; status: StreamStatus }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        border: "1px solid var(--border-strong)",
+        borderRadius: 999,
+        overflow: "hidden",
+      }}
+    >
+      {MODES.map((m) => {
+        const active = m === mode;
+        // Amber while a live stream is connecting, crimson if it dropped. Silence
+        // and breakage must not look the same on stage.
+        const liveColor =
+          status === "error" ? "var(--halted)" : status === "open" ? "var(--settled)" : "var(--pending)";
+        const activeColor = m === "live" ? liveColor : "var(--text)";
+        return (
+          <a
+            key={m}
+            href={modeHref(m)}
+            title={MODE_DESCRIPTION[m]}
+            style={{
+              fontSize: 11,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              padding: "4px 11px",
+              textDecoration: "none",
+              color: active ? "var(--bg)" : "var(--text-faint)",
+              background: active ? activeColor : "transparent",
+              fontWeight: active ? 600 : 400,
+            }}
+          >
+            {MODE_LABEL[m]}
+            {active && m === "live" && status !== "open" ? ` · ${status}` : ""}
+          </a>
+        );
+      })}
+    </div>
   );
 }
 

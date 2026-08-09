@@ -30,14 +30,27 @@ Header shows the whole point side by side: **sub-dollar advice moved $1,714.**
 Click any agent card to open its wallet on the Monad explorer. (In the scripted
 run the wallets are fabricated, so that page will be empty.)
 
-## URL switches
+## The two modes
+
+There's a **SIMULATOR / LIVE** toggle in the top right — click it, no URL editing.
+
+| Mode | |
+|---|---|
+| **simulator** (default) | A scripted run. No backend, no chain, no wallets. |
+| **live** | Renders whatever the backend is actually emitting on `/api/events`. |
+
+**"Live" means "show me the real stream" — not "all of this is real."** How much of
+a live run is genuinely on-chain is the backend's business; the canvas reports what
+arrived and claims nothing more. When live is selected the toggle shows the
+connection state (`connecting` / `error`) so a silent stream and a broken one don't
+look the same.
+
+Simulator-only controls, for rehearsing:
 
 | URL | |
 |---|---|
-| `/` | scripted run, plays on load |
-| `/?speed=4` | 4× speed — for rehearsing one beat repeatedly |
+| `/?speed=4` | 4× speed — for hammering one beat repeatedly |
 | `/?frame=10` | freeze at beat 10 of 37, no timers. Reproducible; good for screenshots |
-| `/?live=1` | read the real backend's SSE stream instead of the script |
 
 There's a **hide log** button bottom-right if the event log is in your way, and
 fit/zoom controls bottom-left for whatever projector we end up on.
@@ -54,9 +67,9 @@ npm run dev
 npm run dev
 ```
 
-Open **http://127.0.0.1:5173/?live=1**. It will sit empty until something emits —
-the backend has to call `emit(...)` (see `docs/tier1-events.md`). To drive it
-without a chain:
+Open **http://127.0.0.1:5173** and click **LIVE**. It will sit empty until
+something emits — the backend has to call `emit(...)` (see `docs/tier1-events.md`).
+To drive it without a chain:
 
 ```bash
 cd web && npm run replay        # pumps the scripted run through the real bus + SSE
