@@ -117,11 +117,16 @@ function agent(
 // Ratings and prices are SYNTHETIC — these are real company names fronted by fake
 // agents, which is why the UI carries a "simulated data" chip. Within a category,
 // better-rated agents charge more: that tension is the decision the demo is about.
+//
+// EXCEPT booking.com, deliberately: most expensive AND worst rated in its category, so
+// it is strictly dominated. Nothing rational buys it. It's a trap — partly a better
+// market (a real one has bad expensive options), partly a diagnostic: an agent that
+// still hires it is not weighing the signals at all.
 export const DEFAULT_AGENTS: AgentRecord[] = [
   agent(1, "kayak.com", "flight", 0.25, 4.9, 24, 94, "0x25733a37A44741C4b081dB49B6AC2f9b4754350a"),
   agent(2, "priceline.com", "flight", 0.12, 4.4, 9, 82, "0x22c7549D0340D13FB485A458d55DE5543904472b"),
   agent(3, "united.com", "flight", 0.06, 3.8, 14, 61, "0xEF6BFfB0eF556bF36447De334dA380A43983C4F3"),
-  agent(4, "booking.com", "hotel", 0.25, 4.9, 21, 91, "0xa1729901dC6601f04aDEe100D1A59860eff444e8"),
+  agent(4, "booking.com", "hotel", 0.25, 3.6, 21, 91, "0xa1729901dC6601f04aDEe100D1A59860eff444e8"),
   agent(5, "hotels.com", "hotel", 0.14, 4.4, 12, 79, "0x99cDCcb651EE91e9d491d25B3835aA2f1d8C9ae6"),
   agent(6, "expedia.com", "hotel", 0.08, 3.8, 18, 64, "0x3c71B2cd7a133A25f3EC33FFE8Eb9128c7206234"),
   agent(7, "hertz.com", "car", 0.11, 4.6, 8, 86, "0xa27B8c7513BeF50e4E91576F48cfa74591357e89"),
@@ -136,4 +141,4 @@ export const DEFAULT_AGENTS: AgentRecord[] = [
  * a version stamp everyone who already ran the server keeps their stale four-agent
  * file and sees no error explaining why.
  */
-export const SEED_VERSION = 3;
+export const SEED_VERSION = 4;

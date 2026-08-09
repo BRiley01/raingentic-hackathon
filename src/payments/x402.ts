@@ -160,12 +160,19 @@ export async function payAndQuery(
   try {
     const probe = await fetch(url, init);
     if (probe.status === 402) {
-      const offered = (await probe.json().catch(() => ({}))) as any;
+      // The challenge is in the PAYMENT-REQUIRED **header**, base64 JSON — the 402 body is
+      // empty `{}`. Reading it from the body silently fell back to the listing price and
+      // an empty payTo, so `payment.challenge` reported our own guess while looking like
+      // it came from the seller. (v2 header names; the v1 X-PAYMENT names are dead.)
+      const raw = probe.headers.get("payment-required") ?? probe.headers.get("x-payment-required");
+      const offered = raw ? JSON.parse(Buffer.from(raw, "base64").toString("utf8")) : {};
       const accepts = offered?.accepts?.[0];
       if (accepts) {
         challenge = {
-          // Atomic units back to USDC — the challenge is authoritative on price (6.2).
-          amountUsdc: Number(accepts.maxAmountRequired ?? accepts.amount ?? 0) / 1_000_000 || expectedUsdc,
+          // Atomic units back to USDC. The challenge — not the listing — is authoritative
+          // on price (6.2), so this is the number that should reach the canvas.
+          amountUsdc:
+            Number(accepts.amount ?? accepts.maxAmountRequired ?? 0) / 1_000_000 || expectedUsdc,
           payTo: String(accepts.payTo ?? ""),
           network: String(accepts.network ?? network()),
         };
