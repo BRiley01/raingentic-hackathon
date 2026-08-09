@@ -16,6 +16,10 @@ Two rails, and the gap between them is the point:
 **Sub-dollar advice moves a $1,700 trip.** That juxtaposition is the pitch, and the live
 canvas renders it.
 
+> **New here, or judging this?** Read **[OVERVIEW.md](OVERVIEW.md)** first — what's real
+> (with on-chain transaction hashes you can look up), which five files to read, and the
+> design decisions behind them. Three minutes.
+
 ---
 
 ## Run it
