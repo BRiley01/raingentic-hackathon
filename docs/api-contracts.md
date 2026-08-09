@@ -76,11 +76,15 @@ isn't going to grow any: it's an **MCP client**. So the marketplace is exposed a
 tools at **`POST /api/mcp`** (Streamable HTTP, stateless), and an LLM does the shopping.
 
 ```
-rain-code
-> /mcp add marketplace http://localhost:3000/api/mcp
-> /mcp connect
+bun run src/index.ts          # in the rain-cli repo; needs Bun and a real TTY
+> /mcp                        # menu → [ Add ] → name: marketplace
+                              #                  link: http://localhost:3000/api/mcp
+> /mcp                        # again → Enter on "marketplace" to connect
 > Book me a week in Paris for two in March, under $1,800.
 ```
+
+`/mcp` is an interactive menu, not a subcommand — Add opens a two-field form (name,
+link), and pressing Enter on a listed server connects it.
 
 | Tool | Emits |
 |---|---|
