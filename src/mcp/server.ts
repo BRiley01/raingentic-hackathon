@@ -32,6 +32,7 @@ import {
   type Listing,
 } from "../marketplace/run-state.js";
 import { settleTrip } from "../trip/service.js";
+import { explorerTxUrl, payAndQuery, x402Enabled } from "../payments/x402.js";
 
 const NETWORK = "eip155:10143"; // Monad testnet
 const usd = (cents: number) => `$${(cents / 100).toFixed(2)}`;
@@ -69,7 +70,10 @@ export function createMarketplaceMcpServer(): McpServer {
       title: "Start a trip run",
       description:
         "Begin shopping for a trip. Call this FIRST. Sets the budget and the per-category " +
-        "spending caps, and resets the live display. Returns the caps you must shop within.",
+        "spending caps, and resets the live display. Returns the caps you must shop " +
+        "within. Note there are two separate pots: the trip budget, and the much smaller " +
+        "amount you spend hiring advisors — spend the second one sparingly, since every " +
+        "cent of it is a cent not spent on the trip.",
       inputSchema: {
         goal: z.string().describe("What the traveller wants, in their words"),
         budgetUsd: z.number().positive().describe("Total budget for the whole trip, in dollars"),
@@ -103,9 +107,11 @@ export function createMarketplaceMcpServer(): McpServer {
     {
       title: "List marketplace agents",
       description:
-        "Show the agents selling advice in one category, with their rating and what they " +
-        "charge per question. Rating and price are the ONLY signals available before you " +
-        "pay — nothing tells you how good an answer will be until you buy it.",
+        "Show the agents selling advice in one category. Each has a rating (from past " +
+        "buyers) and a price per question — these are the ONLY signals available before " +
+        "you pay, and they PULL AGAINST EACH OTHER. The best-rated agent is usually the " +
+        "most expensive, and the advice budget is finite, so buying the top of every " +
+        "category is a choice with a cost, not the safe default.",
       inputSchema: {
         category: z.enum(["flight", "hotel", "car"]).describe("Which kind of agent"),
       },
@@ -149,17 +155,20 @@ export function createMarketplaceMcpServer(): McpServer {
     {
       title: "Pay an agent for a recommendation",
       description:
-        "Pay one agent and get its recommendation. This spends real money from the trip's " +
-        "advice budget, so you must explain your choice: `reasoning` is shown to the user " +
-        "verbatim. Returns the recommendation plus how good the answer turned out to be.",
+        "Pay one agent and get its recommendation. This spends real money — an on-chain " +
+        "USDC micropayment to that agent's wallet — so choose on VALUE, not on rating " +
+        "alone: a 0.5★ edge is rarely worth paying double for, and a cheaper agent whose " +
+        "rating clears your bar leaves budget for the trip itself. Reserve the premium " +
+        "agent for the line item where being wrong costs the most. You must justify the " +
+        "choice: `reasoning` is shown to the user verbatim.",
       inputSchema: {
         agentId: z.string().describe("The agent's id, from list_agents"),
         reasoning: z
           .string()
           .min(10)
           .describe(
-            "Why this agent over the others — weigh its rating against its price. Shown to " +
-              "the user as your own words.",
+            "Why this one and not the others — name the agent you passed over and say what " +
+              "its extra rating would have cost. Shown to the user as your own words.",
           ),
       },
     },
@@ -189,21 +198,67 @@ export function createMarketplaceMcpServer(): McpServer {
       });
       emit("client.select", { queryId, agentId: agent.agentId, reason: reasoning.slice(0, 120) });
 
-      // x402 payment. Simulated for now — `simulated: true` and no txHash, because there
-      // is no transaction and inventing one would be the most dishonest thing here.
       const paymentId = `pay_${domain}`;
-      emit("payment.challenge", {
-        paymentId,
-        agentId: agent.agentId,
-        amountUsdc: agent.priceUsdc,
-        payTo: agent.wallet,
-        network: NETWORK,
-        simulated: true,
-      });
-      emit("payment.signed", { paymentId, agentId: agent.agentId, simulated: true });
-      emit("payment.settled", { paymentId, agentId: agent.agentId, durationMs: 0, simulated: true });
+      let answer: { quality: number; lineItem: any };
+      let settlement = "";
 
-      const answer = answerQuery(agent, { capCents });
+      if (x402Enabled()) {
+        // REAL x402 on Monad. The seller route is paywalled, so this actually signs
+        // EIP-3009 and the facilitator settles on-chain before the answer comes back —
+        // the agent cannot be tricked into answering unpaid.
+        const port = process.env.PORT ?? 3000;
+        const url = `http://127.0.0.1:${port}/api/agents/${encodeURIComponent(agent.agentId)}/query`;
+        let paid;
+        try {
+          paid = await payAndQuery(url, { capCents }, agent.priceUsdc);
+        } catch (err) {
+          emit("payment.failed", {
+            paymentId,
+            agentId: agent.agentId,
+            reason: err instanceof Error ? err.message.slice(0, 200) : String(err),
+          });
+          return failure(
+            `Payment to ${agent.name} failed, so no advice was received: ` +
+              `${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+
+        // The challenge comes from the seller's actual 402, not from the listing.
+        emit("payment.challenge", {
+          paymentId,
+          agentId: agent.agentId,
+          amountUsdc: paid.challenge.amountUsdc,
+          payTo: paid.challenge.payTo || agent.wallet,
+          network: paid.challenge.network,
+        });
+        emit("payment.signed", { paymentId, agentId: agent.agentId });
+        emit("payment.settled", {
+          paymentId,
+          agentId: agent.agentId,
+          txHash: paid.txHash,
+          durationMs: paid.durationMs,
+          explorerUrl: paid.txHash ? explorerTxUrl(paid.txHash) : undefined,
+        });
+
+        answer = { quality: paid.body.quality, lineItem: paid.body.lineItem };
+        settlement = paid.txHash
+          ? `Settled on Monad in ${paid.durationMs}ms — tx ${paid.txHash}\n`
+          : `Settled in ${paid.durationMs}ms.\n`;
+      } else {
+        // Simulated: `simulated: true` and NO txHash, because there is no transaction and
+        // inventing one would be the most dishonest thing this file could do.
+        emit("payment.challenge", {
+          paymentId,
+          agentId: agent.agentId,
+          amountUsdc: agent.priceUsdc,
+          payTo: agent.wallet,
+          network: NETWORK,
+          simulated: true,
+        });
+        emit("payment.signed", { paymentId, agentId: agent.agentId, simulated: true });
+        emit("payment.settled", { paymentId, agentId: agent.agentId, durationMs: 0, simulated: true });
+        answer = answerQuery(agent, { capCents });
+      }
       const lineItem = { ...answer.lineItem, id: `${domain}-1`, domain };
 
       recordHire(
@@ -229,7 +284,7 @@ export function createMarketplaceMcpServer(): McpServer {
 
       return text(
         `Paid ${agent.name} $${agent.priceUsdc.toFixed(2)} USDC. Advice spend so far: ` +
-          `$${run.spentUsdc.toFixed(2)}.\n\n` +
+          `$${run.spentUsdc.toFixed(2)}.\n${settlement}\n` +
           `Its recommendation: ${lineItem.label}\n` +
           `  vendor    ${lineItem.vendor}\n` +
           `  cost      ${usd(lineItem.maxSpend.amountCents)} of a ${usd(capCents)} cap\n` +
